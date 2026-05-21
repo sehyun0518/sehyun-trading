@@ -1,0 +1,23 @@
+database:
+  path: data/market.db
+
+logging:
+  level: INFO
+  file: data/trading.log
+
+kis:
+  base_url_real: https://openapi.koreainvestment.com:9443
+  base_url_paper: https://openapivts.koreainvestment.com:29443
+  rate_limit_per_second: 18          # KIS 제한 20건, 여유 2건
+
+pykrx:
+  retry_count: 3
+  retry_delay_seconds: 5
+
+report:
+  output_dir: reports
+  template: src/report/templates/weekly_template.md
+
+claude:
+  model: claude-sonnet-4-6
+  max_tokens: 16000

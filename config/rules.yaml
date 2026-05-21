@@ -1,0 +1,31 @@
+# ★ 사용자 투자 규칙 — 분기 첫 주에만 수정, 변경 시 백테스트 필수
+# 마지막 수정: 2026-05-18
+
+universe:
+  markets: [KOSPI, KOSDAQ]
+  min_market_cap_billion: 300        # 시총 3,000억 이상
+  exclude_sectors: [관리종목, 환기종목]
+  exclude_themes: []
+
+position:
+  max_positions: 5                   # 최대 보유 종목 수
+  position_size_min_krw: 500_000     # 종목당 최소 50만원
+  position_size_max_krw: 1_000_000   # 종목당 최대 100만원
+  min_cash_ratio: 0.20               # 최소 현금 비중 20%
+  max_sector_weight: 0.40            # 1섹터 최대 40%
+
+entry_signal:                        # AND 조건 (모두 충족해야 진입 후보)
+  close_above_ma: 20                 # 종가 > 20일 이동평균
+  rsi_range: [30, 55]                # RSI 30~55 (과매수 제외, 상승 초입)
+  foreign_net_5d_positive: true      # 최근 5일 외국인 순매수 양수
+  volume_ratio_5d: 1.2               # 최근 거래량 > 5일 평균의 1.2배
+
+exit_signal:                         # OR 조건 (하나라도 충족하면 청산 검토)
+  take_profit_pct: 15                # 수익률 +15%
+  stop_loss_pct: -7                  # 손실률 -7%
+  time_stop_days: 60                 # 60일 경과 시 청산 검토
+  ma_break: 60                       # 60일선 하향 이탈
+
+risk:
+  daily_loss_halt_pct: -3.0          # 일일 -3% 시 그 주 신규 진입 차단
+  weekly_loss_review_pct: -5.0       # 주간 -5% 시 전략 점검
