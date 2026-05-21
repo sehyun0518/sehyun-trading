@@ -46,6 +46,7 @@ fi
 
 # ── 5. 소스 클론 ─────────────────────────────────────────────────────────────
 echo "[5/9] 소스 클론"
+git config --global --add safe.directory "$APP_DIR"
 if [ -d "$APP_DIR/.git" ]; then
     git -C "$APP_DIR" pull
 else
