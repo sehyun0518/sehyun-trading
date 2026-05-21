@@ -35,6 +35,8 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE trading_db TO trading
 echo "[3/9] uv 설치"
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="/root/.local/bin:$PATH"
+cp /usr/local/bin/uv /usr/local/bin/uv
+chmod 755 /usr/local/bin/uv
 
 # ── 4. 앱 유저 생성 ──────────────────────────────────────────────────────────
 echo "[4/9] 앱 유저 생성"
@@ -54,7 +56,7 @@ chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
 # ── 6. Python 의존성 설치 ────────────────────────────────────────────────────
 echo "[6/9] Python 의존성 설치"
 cd "$APP_DIR"
-sudo -u "$APP_USER" /root/.local/bin/uv sync --no-dev
+sudo -u "$APP_USER" /usr/local/bin/uv sync --no-dev
 
 # ── 7. .env 파일 ─────────────────────────────────────────────────────────────
 echo "[7/9] .env 파일 확인"
@@ -71,7 +73,7 @@ chmod 600 "$APP_DIR/.env"
 # ── 8. DB 스키마 초기화 ──────────────────────────────────────────────────────
 echo "[8/9] DB 스키마 초기화"
 cd "$APP_DIR"
-sudo -u "$APP_USER" /root/.local/bin/uv run python scripts/setup_db.py
+sudo -u "$APP_USER" /usr/local/bin/uv run python scripts/setup_db.py
 
 # ── 9. systemd + nginx ───────────────────────────────────────────────────────
 echo "[9/9] systemd + nginx 설정"
@@ -88,7 +90,7 @@ sed -i 's/^    server {/    #server {/' /etc/nginx/nginx.conf 2>/dev/null || tru
 nginx -t && systemctl enable --now nginx && systemctl reload nginx
 
 # ── cron 등록 ────────────────────────────────────────────────────────────────
-UV="/root/.local/bin/uv"
+UV="/usr/local/bin/uv"
 CRON_CMD="cd $APP_DIR && $UV run python scripts/daily_collect.py >> $APP_DIR/data/cron.log 2>&1"
 WEEKLY_CMD="cd $APP_DIR && $UV run python scripts/weekly_report.py >> $APP_DIR/data/cron.log 2>&1"
 
