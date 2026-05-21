@@ -1,0 +1,46 @@
+const BASE = import.meta.env.VITE_API_URL ?? ''
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`)
+  if (!res.ok) throw new Error(`API ${path} → ${res.status}`)
+  return res.json()
+}
+
+export interface Holding {
+  ticker: string; quantity: number; avg_price: number
+  current_price: number; eval_amount: number
+  eval_pl: number; eval_pl_pct: number; updated_at: string
+}
+export interface PortfolioSummary {
+  total_eval: number; cash: number; total: number
+  cash_ratio: number; position_count: number
+}
+export interface PortfolioResponse {
+  mode: string; holdings: Holding[]; summary: PortfolioSummary
+}
+
+export interface Candidate {
+  ticker: string; name: string; market: string | null
+  market_cap_b: number | null; close: number; ma20: number
+  ma20_diff_pct: number | null; rsi: number; volume_ratio: number
+  foreign_net_5d: number; checks: Record<string, boolean>
+  entry_price: number; stop_loss: number; take_profit: number
+}
+export interface CandidatesResponse {
+  run_date: string; candidates: Candidate[]; warnings: unknown[]
+}
+
+export interface ReportMeta {
+  date: string; candidates_count: number; file_path: string
+}
+export interface ReportDetail {
+  date: string; content: string
+  candidates: unknown[]; warnings: unknown[]
+}
+
+export const api = {
+  portfolio:    () => get<PortfolioResponse>('/api/portfolio'),
+  candidates:   () => get<CandidatesResponse>('/api/candidates'),
+  reports:      () => get<ReportMeta[]>('/api/reports'),
+  reportDetail: (d: string) => get<ReportDetail>(`/api/reports/${d}`),
+}
