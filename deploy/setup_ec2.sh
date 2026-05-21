@@ -10,7 +10,7 @@ APP_USER="trading"
 # ── 1. 시스템 패키지 ──────────────────────────────────────────────────────────
 echo "[1/9] 시스템 패키지 업데이트"
 dnf update -y
-dnf install -y git nginx postgresql15-server python3.12 python3.12-pip
+dnf install -y git nginx postgresql15-server python3.12 python3.12-pip cronie
 
 # ── 2. PostgreSQL 초기화 ─────────────────────────────────────────────────────
 echo "[2/9] PostgreSQL 초기화"
@@ -86,13 +86,30 @@ cp "$APP_DIR/deploy/sehyun-trading.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now sehyun-trading
 
-# nginx — AL2023은 conf.d/ 디렉토리 사용
+# nginx — 기본 nginx.conf를 최소 설정으로 교체 (default server 블록 제거)
+cat > /etc/nginx/nginx.conf << 'NGINXEOF'
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log notice;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    sendfile        on;
+    keepalive_timeout  65;
+    include /etc/nginx/conf.d/*.conf;
+}
+NGINXEOF
 cp "$APP_DIR/deploy/nginx.conf" /etc/nginx/conf.d/sehyun-trading.conf
-# 기본 server 블록 비활성화
-sed -i 's/^    server {/    #server {/' /etc/nginx/nginx.conf 2>/dev/null || true
 nginx -t && systemctl enable --now nginx && systemctl reload nginx
 
 # ── cron 등록 ────────────────────────────────────────────────────────────────
+systemctl enable --now crond
 UV="/usr/local/bin/uv"
 CRON_CMD="cd $APP_DIR && $UV run python scripts/daily_collect.py >> $APP_DIR/data/cron.log 2>&1"
 WEEKLY_CMD="cd $APP_DIR && $UV run python scripts/weekly_report.py >> $APP_DIR/data/cron.log 2>&1"
