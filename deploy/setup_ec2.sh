@@ -3,7 +3,7 @@
 # 사용법: sudo bash deploy/setup_ec2.sh
 set -euo pipefail
 
-REPO_URL="https://github.com/tew-shkim/sehyun-trading.git"
+REPO_URL="https://github.com/sehyun0518/sehyun-trading.git"
 APP_DIR="/opt/sehyun-trading"
 APP_USER="trading"
 
