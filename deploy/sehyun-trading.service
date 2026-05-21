@@ -1,0 +1,16 @@
+[Unit]
+Description=KR Swing Advisor FastAPI
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=trading
+WorkingDirectory=/opt/sehyun-trading
+EnvironmentFile=/opt/sehyun-trading/.env
+ExecStart=/root/.local/bin/uv run uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
