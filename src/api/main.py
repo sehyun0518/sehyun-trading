@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.data import storage
-from src.data.kis_client import get_mode
+from src.data.kis_client import get_mode, set_mode
 from src.rules.engine import run as run_engine
 
 app = FastAPI(title="KR Swing Advisor", version="1.0.0")
@@ -19,7 +19,7 @@ app = FastAPI(title="KR Swing Advisor", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Vercel 배포 후 도메인으로 좁힐 것
-    allow_methods=["GET"],
+    allow_methods=["GET", "PUT"],
     allow_headers=["*"],
 )
 
@@ -27,6 +27,16 @@ app.add_middleware(
 @app.get("/api/health")
 def health():
     return {"status": "ok", "mode": get_mode()}
+
+
+@app.put("/api/mode")
+def switch_mode(body: dict):
+    """운영 모드 전환 (재시작 없이)."""
+    mode = body.get("mode", "")
+    if mode not in ("paper", "real"):
+        raise HTTPException(status_code=400, detail="mode는 'paper' 또는 'real'이어야 합니다.")
+    set_mode(mode)
+    return {"mode": get_mode()}
 
 
 @app.get("/api/portfolio")

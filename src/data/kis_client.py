@@ -15,29 +15,34 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
-# ── 운영 모드 ──────────────────────────────────────────────────────────────
+# ── 운영 모드 (런타임 변경 가능) ─────────────────────────────────────────────
 _MODE = os.getenv("KIS_MODE", "paper").lower()
 if _MODE not in ("paper", "real"):
-    raise ValueError(f"KIS_MODE은 'paper' 또는 'real'이어야 합니다. 현재값: {_MODE!r}")
+    _MODE = "paper"
 
 # ── 실전 자격증명 (시장 데이터 전용) ────────────────────────────────────────
 _REAL_APP_KEY    = os.getenv("KIS_REAL_APP_KEY", "")
 _REAL_APP_SECRET = os.getenv("KIS_REAL_APP_SECRET", "")
 _REAL_BASE_URL   = "https://openapi.koreainvestment.com:9443"
 
-# ── 계좌 자격증명 (잔고 조회 전용, 모드에 따라 분기) ────────────────────────
-if _MODE == "paper":
-    _ACC_APP_KEY    = os.getenv("KIS_PAPER_APP_KEY", "")
-    _ACC_APP_SECRET = os.getenv("KIS_PAPER_APP_SECRET", "")
-    _ACCOUNT_RAW    = os.getenv("KIS_PAPER_ACCOUNT_NO", "")
-    _ACC_BASE_URL   = "https://openapivts.koreainvestment.com:29443"
-    _BALANCE_TR_ID  = "VTTC8434R"
-else:
-    _ACC_APP_KEY    = _REAL_APP_KEY
-    _ACC_APP_SECRET = _REAL_APP_SECRET
-    _ACCOUNT_RAW    = os.getenv("KIS_REAL_ACCOUNT_NO", "")
-    _ACC_BASE_URL   = _REAL_BASE_URL
-    _BALANCE_TR_ID  = "TTTC8434R"
+
+def _acc_creds() -> dict:
+    """현재 모드에 따른 계좌 자격증명을 동적으로 반환."""
+    if _MODE == "paper":
+        return {
+            "app_key":    os.getenv("KIS_PAPER_APP_KEY", ""),
+            "app_secret": os.getenv("KIS_PAPER_APP_SECRET", ""),
+            "account":    os.getenv("KIS_PAPER_ACCOUNT_NO", ""),
+            "base_url":   "https://openapivts.koreainvestment.com:29443",
+            "tr_id":      "VTTC8434R",
+        }
+    return {
+        "app_key":    os.getenv("KIS_REAL_APP_KEY", ""),
+        "app_secret": os.getenv("KIS_REAL_APP_SECRET", ""),
+        "account":    os.getenv("KIS_REAL_ACCOUNT_NO", ""),
+        "base_url":   _REAL_BASE_URL,
+        "tr_id":      "TTTC8434R",
+    }
 
 
 def _parse_account(raw: str) -> tuple[str, str]:
@@ -63,6 +68,15 @@ _account_token_cache: dict[str, Any] = {"access_token": None, "expires_at": None
 def get_mode() -> str:
     """현재 운영 모드 반환: 'paper' | 'real'"""
     return _MODE
+
+
+def set_mode(mode: str) -> None:
+    """운영 모드 런타임 변경 (재시작 없이 전환)."""
+    global _MODE, _account_token_cache
+    if mode not in ("paper", "real"):
+        raise ValueError(f"mode는 'paper' 또는 'real'이어야 합니다.")
+    _MODE = mode
+    _account_token_cache = {"access_token": None, "expires_at": None}
 
 
 def _rate_limit_wait() -> None:
@@ -147,10 +161,11 @@ def _market_token() -> str:
 
 def _acc_token() -> str:
     """잔고 조회용 토큰 (모드에 따라 paper/real)."""
-    if not _ACC_APP_KEY or not _ACC_APP_SECRET or not _ACCOUNT_RAW:
+    creds = _acc_creds()
+    if not creds["app_key"] or not creds["app_secret"] or not creds["account"]:
         mode_label = "모의투자(KIS_PAPER_*)" if _MODE == "paper" else "실전투자(KIS_REAL_*)"
         raise RuntimeError(f"KIS_MODE={_MODE!r}이지만 {mode_label} 자격증명이 .env에 없습니다.")
-    return _fetch_token(_ACC_BASE_URL, _ACC_APP_KEY, _ACC_APP_SECRET, _account_token_cache)
+    return _fetch_token(creds["base_url"], creds["app_key"], creds["app_secret"], _account_token_cache)
 
 
 def _get_market(path: str, tr_id: str, params: dict) -> dict:
@@ -175,17 +190,18 @@ def _get_market(path: str, tr_id: str, params: dict) -> dict:
 
 def _get_account(path: str, tr_id: str, params: dict) -> dict:
     """계좌 데이터 조회 — 모드에 따라 paper/real 자격증명."""
+    creds = _acc_creds()
     _rate_limit_wait()
     token = _acc_token()
     headers = {
         "content-type": "application/json; charset=utf-8",
         "authorization": f"Bearer {token}",
-        "appkey": _ACC_APP_KEY,
-        "appsecret": _ACC_APP_SECRET,
+        "appkey": creds["app_key"],
+        "appsecret": creds["app_secret"],
         "tr_id": tr_id,
         "custtype": "P",
     }
-    resp = requests.get(f"{_ACC_BASE_URL}{path}", headers=headers, params=params, timeout=10)
+    resp = requests.get(f"{creds['base_url']}{path}", headers=headers, params=params, timeout=10)
     resp.raise_for_status()
     data = resp.json()
     if data.get("rt_cd") != "0":
@@ -195,13 +211,14 @@ def _get_account(path: str, tr_id: str, params: dict) -> dict:
 
 def _get_hashkey(body: dict) -> str:
     """KIS 주문 API용 hashkey 발급 (POST body 서명)."""
+    creds = _acc_creds()
     resp = requests.post(
-        f"{_ACC_BASE_URL}/uapi/hashkey",
+        f"{creds['base_url']}/uapi/hashkey",
         json=body,
         headers={
             "content-type": "application/json; charset=utf-8",
-            "appkey": _ACC_APP_KEY,
-            "appsecret": _ACC_APP_SECRET,
+            "appkey": creds["app_key"],
+            "appsecret": creds["app_secret"],
         },
         timeout=10,
     )
@@ -211,19 +228,20 @@ def _get_hashkey(body: dict) -> str:
 
 def _post_account(path: str, tr_id: str, body: dict) -> dict:
     """계좌 주문 POST — hashkey 서명 포함."""
+    creds = _acc_creds()
     _rate_limit_wait()
     token = _acc_token()
     hashkey = _get_hashkey(body)
     headers = {
         "content-type": "application/json; charset=utf-8",
         "authorization": f"Bearer {token}",
-        "appkey": _ACC_APP_KEY,
-        "appsecret": _ACC_APP_SECRET,
+        "appkey": creds["app_key"],
+        "appsecret": creds["app_secret"],
         "tr_id": tr_id,
         "custtype": "P",
         "hashkey": hashkey,
     }
-    resp = requests.post(f"{_ACC_BASE_URL}{path}", json=body, headers=headers, timeout=10)
+    resp = requests.post(f"{creds['base_url']}{path}", json=body, headers=headers, timeout=10)
     resp.raise_for_status()
     data = resp.json()
     if data.get("rt_cd") != "0":
@@ -235,11 +253,12 @@ def _post_account(path: str, tr_id: str, body: dict) -> dict:
 
 def get_holdings() -> list[dict]:
     """잔고 조회 → 보유 종목 리스트. 운영 모드(paper/real)에 따라 자동 분기."""
-    acc_no, acc_prod = _parse_account(_ACCOUNT_RAW)
+    creds = _acc_creds()
+    acc_no, acc_prod = _parse_account(creds["account"])
     # VTS(모의투자)는 PRCS_DVSN=00, OFL_YN=N 사용
     data = _get_account(
         "/uapi/domestic-stock/v1/trading/inquire-balance",
-        _BALANCE_TR_ID,
+        creds["tr_id"],
         {
             "CANO": acc_no,
             "ACNT_PRDT_CD": acc_prod,
@@ -339,7 +358,8 @@ def place_order(ticker: str, qty: int, side: str) -> dict:
     if qty <= 0:
         raise ValueError(f"주문 수량은 1 이상이어야 합니다. 입력값: {qty}")
 
-    acc_no, acc_prod = _parse_account(_ACCOUNT_RAW)
+    creds = _acc_creds()
+    acc_no, acc_prod = _parse_account(creds["account"])
     tr_id = "VTTC0802U" if side == "buy" else "VTTC0801U"
 
     body = {

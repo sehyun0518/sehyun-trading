@@ -38,9 +38,20 @@ export interface ReportDetail {
   candidates: unknown[]; warnings: unknown[]
 }
 
+async function put<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`API ${path} → ${res.status}`)
+  return res.json()
+}
+
 export const api = {
   portfolio:    () => get<PortfolioResponse>('/api/portfolio'),
   candidates:   () => get<CandidatesResponse>('/api/candidates'),
   reports:      () => get<ReportMeta[]>('/api/reports'),
   reportDetail: (d: string) => get<ReportDetail>(`/api/reports/${d}`),
+  setMode:      (mode: 'paper' | 'real') => put<{ mode: string }>('/api/mode', { mode }),
 }
