@@ -10,7 +10,7 @@ APP_USER="trading"
 # ── 1. 시스템 패키지 ──────────────────────────────────────────────────────────
 echo "[1/9] 시스템 패키지 업데이트"
 dnf update -y
-dnf install -y git nginx postgresql15-server python3-pip
+dnf install -y git nginx postgresql15-server python3.12 python3.12-pip
 
 # ── 2. PostgreSQL 초기화 ─────────────────────────────────────────────────────
 echo "[2/9] PostgreSQL 초기화"
@@ -59,7 +59,7 @@ chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
 # ── 6. Python 의존성 설치 ────────────────────────────────────────────────────
 echo "[6/9] Python 의존성 설치"
 cd "$APP_DIR"
-sudo -u "$APP_USER" /usr/local/bin/uv sync --no-dev
+sudo -u "$APP_USER" /usr/local/bin/uv sync --no-dev --python 3.12
 
 # ── 7. .env 파일 ─────────────────────────────────────────────────────────────
 echo "[7/9] .env 파일 확인"
