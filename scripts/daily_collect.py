@@ -127,6 +127,15 @@ def run(target: date, force: bool = False) -> None:
     # 5. 잔고 동기화
     sync_holdings()
 
+    # 6. 규칙 엔진 실행 → 캐시 저장 (API가 캐시에서 즉시 응답하도록)
+    try:
+        from src.rules.engine import run as run_engine
+        engine_result = run_engine(target_date=target)
+        storage.save_engine_cache(engine_result)
+        log.info(f"엔진 캐시 저장: 후보 {len(engine_result['candidates'])}종목, 경고 {len(engine_result['warnings'])}건")
+    except Exception as e:
+        log.error(f"엔진 캐시 저장 실패: {e}")
+
     log.info(f"=== 일일 수집 완료: {target} ===")
 
 

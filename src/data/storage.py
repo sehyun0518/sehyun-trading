@@ -237,3 +237,22 @@ def get_report_content(report_date: str) -> dict | None:
         "warnings": json.loads(row["warnings"] or "[]"),
         "file_path": row.get("file_path", ""),
     }
+
+
+# ── 엔진 캐시 ─────────────────────────────────────────────────────────────────
+
+_CACHE_PATH = Path(__file__).parent.parent.parent / "data" / "engine_cache.json"
+
+
+def save_engine_cache(result: dict) -> None:
+    _CACHE_PATH.parent.mkdir(exist_ok=True)
+    _CACHE_PATH.write_text(json.dumps(result, ensure_ascii=False, default=str))
+
+
+def get_engine_cache() -> dict | None:
+    if not _CACHE_PATH.exists():
+        return None
+    try:
+        return json.loads(_CACHE_PATH.read_text())
+    except Exception:
+        return None

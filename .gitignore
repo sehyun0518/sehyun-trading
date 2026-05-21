@@ -9,6 +9,7 @@ data/*.db
 data/*.log
 data/cron_*.log
 data/.kis_token_*.json
+data/engine_cache.json
 
 # 리포트 (로컬 전용)
 reports/

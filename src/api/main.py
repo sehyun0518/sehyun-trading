@@ -81,9 +81,14 @@ def portfolio():
 
 @app.get("/api/candidates")
 def candidates():
-    """최신 규칙 엔진 후보 종목 (오늘 기준)."""
+    """최신 규칙 엔진 후보 종목 — 당일 캐시 우선, 없으면 실시간 계산."""
     try:
-        result = run_engine()
+        cached = storage.get_engine_cache()
+        if cached and cached.get("run_date") == date.today().isoformat():
+            result = cached
+        else:
+            result = run_engine()
+            storage.save_engine_cache(result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
