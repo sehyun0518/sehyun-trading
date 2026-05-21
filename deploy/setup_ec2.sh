@@ -10,7 +10,7 @@ APP_USER="trading"
 # ── 1. 시스템 패키지 ──────────────────────────────────────────────────────────
 echo "[1/9] 시스템 패키지 업데이트"
 dnf update -y
-dnf install -y git curl nginx postgresql15-server python3-pip
+dnf install -y git nginx postgresql15-server python3-pip
 
 # ── 2. PostgreSQL 초기화 ─────────────────────────────────────────────────────
 echo "[2/9] PostgreSQL 초기화"
