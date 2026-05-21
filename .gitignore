@@ -1,0 +1,31 @@
+# 환경변수 (절대 커밋 금지)
+.env
+.env.local
+
+# 데이터 파일
+data/market.db
+data/parquet/
+data/*.db
+data/*.log
+data/cron_*.log
+data/.kis_token_*.json
+
+# 리포트 (로컬 전용)
+reports/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+
+# uv
+.python-version
+
+# macOS
+.DS_Store
