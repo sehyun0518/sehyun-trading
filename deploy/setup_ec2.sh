@@ -41,7 +41,9 @@ chmod 755 /usr/local/bin/uv
 # ── 4. 앱 유저 생성 ──────────────────────────────────────────────────────────
 echo "[4/9] 앱 유저 생성"
 if ! id "$APP_USER" &>/dev/null; then
-    useradd -r -s /bin/bash -M "$APP_USER"
+    useradd -r -s /bin/bash -m "$APP_USER"
+else
+    mkdir -p /home/"$APP_USER" && chown "$APP_USER":"$APP_USER" /home/"$APP_USER"
 fi
 
 # ── 5. 소스 클론 ─────────────────────────────────────────────────────────────
