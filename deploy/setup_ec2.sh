@@ -113,9 +113,12 @@ systemctl enable --now crond
 UV="/usr/local/bin/uv"
 CRON_CMD="cd $APP_DIR && $UV run python scripts/daily_collect.py >> $APP_DIR/data/cron.log 2>&1"
 WEEKLY_CMD="cd $APP_DIR && $UV run python scripts/weekly_report.py >> $APP_DIR/data/cron.log 2>&1"
+WARM_CMD="cd $APP_DIR && $UV run python scripts/warm_candidates_cache.py >> $APP_DIR/data/cron.log 2>&1"
 
 (crontab -u "$APP_USER" -l 2>/dev/null || true; echo "0 18 * * 1-5 $CRON_CMD") | sort -u | crontab -u "$APP_USER" -
 (crontab -u "$APP_USER" -l 2>/dev/null; echo "0 7 * * 1 $WEEKLY_CMD") | sort -u | crontab -u "$APP_USER" -
+# 장 시작 직후(09:05 KST = 00:05 UTC) candidates 캐시 프리워밍
+(crontab -u "$APP_USER" -l 2>/dev/null; echo "5 0 * * 1-5 $WARM_CMD") | sort -u | crontab -u "$APP_USER" -
 
 echo ""
 echo "✅ 설정 완료!"
