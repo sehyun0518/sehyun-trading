@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.data import storage
+from src.data import kis_client
 from src.data.kis_client import get_mode, set_mode
 from src.rules.engine import run as run_engine
 
@@ -41,37 +42,38 @@ def switch_mode(body: dict):
 
 @app.get("/api/portfolio")
 def portfolio():
-    """보유 종목 + 포트폴리오 요약."""
-    holdings_df = storage.get_holdings()
+    """보유 종목 + 포트폴리오 요약 — KIS API 실시간 조회."""
+    try:
+        kis_holdings = kis_client.get_holdings()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"KIS 잔고 조회 실패: {e}")
+
     holdings = []
     total_eval = 0
+    for h in kis_holdings:
+        holdings.append({
+            "ticker":        h["ticker"],
+            "quantity":      h["quantity"],
+            "avg_price":     h["avg_price"],
+            "current_price": h["current_price"],
+            "eval_amount":   h["eval_amount"],
+            "eval_pl":       h["eval_pl"],
+            "eval_pl_pct":   h["eval_pl_pct"],
+            "updated_at":    "",
+        })
+        total_eval += h["eval_amount"]
 
-    if not holdings_df.empty:
-        for _, row in holdings_df.iterrows():
-            holdings.append({
-                "ticker":        row["ticker"],
-                "quantity":      int(row["quantity"]),
-                "avg_price":     float(row["avg_price"]),
-                "current_price": float(row["current_price"]),
-                "eval_amount":   int(row["eval_amount"]),
-                "eval_pl":       int(row["eval_pl"]),
-                "eval_pl_pct":   float(row["eval_pl_pct"]),
-                "updated_at":    str(row.get("updated_at", "")),
-            })
-            total_eval += int(row["eval_amount"])
-
-    # 현금은 환경변수 또는 고정값 (주간 리포트와 동일 기준)
-    cash = float(os.getenv("PORTFOLIO_CASH", "1000000")) - total_eval
+    cash = float(os.getenv("PORTFOLIO_CASH", "10000000")) - total_eval
     total = cash + total_eval
 
     return {
         "mode": get_mode(),
         "holdings": holdings,
         "summary": {
-            "total_eval":   total_eval,
-            "cash":         round(cash),
-            "total":        round(total),
-            "cash_ratio":   round(cash / total * 100, 1) if total > 0 else 100.0,
+            "total_eval":     total_eval,
+            "cash":           round(cash),
+            "total":          round(total),
+            "cash_ratio":     round(cash / total * 100, 1) if total > 0 else 100.0,
             "position_count": len(holdings),
         },
     }
