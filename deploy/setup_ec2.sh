@@ -35,7 +35,7 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE trading_db TO trading
 echo "[3/9] uv 설치"
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="/root/.local/bin:$PATH"
-cp /usr/local/bin/uv /usr/local/bin/uv
+cp /root/.local/bin/uv /usr/local/bin/uv
 chmod 755 /usr/local/bin/uv
 
 # ── 4. 앱 유저 생성 ──────────────────────────────────────────────────────────
