@@ -166,6 +166,21 @@ def get_trading_flow(ticker: str, days: int = 20) -> pd.DataFrame:
     return _read(f"SELECT * FROM trading_flow WHERE ticker={p} ORDER BY date DESC LIMIT {days}", (ticker,))
 
 
+def get_trading_flow_multi(tickers: list[str], days: int = 10) -> pd.DataFrame:
+    """여러 종목의 수급을 한 번에 조회."""
+    if not tickers:
+        return pd.DataFrame()
+    from datetime import timedelta
+    cutoff = (date.today() - timedelta(days=days * 3)).isoformat()
+    p = _ph()
+    placeholders = ",".join([p] * len(tickers))
+    sql = (
+        f"SELECT ticker,date,foreign_net,inst_net,indiv_net FROM trading_flow "
+        f"WHERE ticker IN ({placeholders}) AND date >= {p} ORDER BY ticker, date DESC"
+    )
+    return _read(sql, (*tickers, cutoff))
+
+
 # ── 보유 종목 ────────────────────────────────────────────────────────────────
 
 def upsert_holdings(df: pd.DataFrame) -> int:

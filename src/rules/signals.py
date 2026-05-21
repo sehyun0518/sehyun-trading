@@ -15,19 +15,7 @@ def _load_rules() -> dict:
         return yaml.safe_load(f)
 
 
-def compute_indicators(ticker: str, end_date: date | None = None) -> dict | None:
-    """
-    단일 종목의 기술적 지표 계산.
-    반환: {ticker, close, ma20, ma60, rsi, volume_ratio_5d, foreign_net_5d, ...}
-    None이면 데이터 부족.
-    """
-    end = end_date or date.today()
-    start = end - timedelta(days=200)  # 지표 계산용 충분한 히스토리
-
-    ohlcv = storage.get_ohlcv(ticker, start.isoformat(), end.isoformat())
-    if len(ohlcv) < 60:
-        return None
-
+def _indicators_from_ohlcv(ohlcv: pd.DataFrame, flow: pd.DataFrame) -> dict:
     ohlcv = ohlcv.sort_values("date").reset_index(drop=True)
     close = ohlcv["close"]
     volume = ohlcv["volume"]
@@ -36,24 +24,67 @@ def compute_indicators(ticker: str, end_date: date | None = None) -> dict | None
     ma60 = ta.sma(close, length=60).iloc[-1]
     rsi = ta.rsi(close, length=14).iloc[-1]
 
-    vol_5d_avg = volume.iloc[-6:-1].mean()  # 직전 5일 평균 (오늘 제외)
+    vol_5d_avg = volume.iloc[-6:-1].mean()
     vol_today = volume.iloc[-1]
     volume_ratio = vol_today / vol_5d_avg if vol_5d_avg > 0 else 0.0
 
-    # 수급: 최근 5거래일 외국인 순매수 합산
-    flow = storage.get_trading_flow(ticker, days=5)
     foreign_net_5d = float(flow["foreign_net"].sum()) if not flow.empty else 0.0
 
-    latest_close = float(close.iloc[-1])
     return {
-        "ticker": ticker,
-        "close": latest_close,
+        "ticker": str(ohlcv["ticker"].iloc[0]) if "ticker" in ohlcv.columns else "",
+        "close": float(close.iloc[-1]),
         "ma20": float(ma20) if pd.notna(ma20) else None,
         "ma60": float(ma60) if pd.notna(ma60) else None,
         "rsi": float(rsi) if pd.notna(rsi) else None,
         "volume_ratio_5d": round(volume_ratio, 3),
         "foreign_net_5d": foreign_net_5d,
     }
+
+
+def compute_indicators(ticker: str, end_date: date | None = None) -> dict | None:
+    """단일 종목 지표 계산 (보유 종목 청산 점검용)."""
+    end = end_date or date.today()
+    start = end - timedelta(days=200)
+
+    ohlcv = storage.get_ohlcv(ticker, start.isoformat(), end.isoformat())
+    if len(ohlcv) < 60:
+        return None
+
+    flow = storage.get_trading_flow(ticker, days=5)
+    ind = _indicators_from_ohlcv(ohlcv, flow)
+    ind["ticker"] = ticker
+    return ind
+
+
+def compute_indicators_batch(tickers: list[str], end_date: date | None = None) -> dict[str, dict | None]:
+    """여러 종목 지표를 2번의 쿼리로 일괄 계산."""
+    if not tickers:
+        return {}
+    end = end_date or date.today()
+    start = end - timedelta(days=200)
+
+    ohlcv_all = storage.get_ohlcv_multi(tickers, start.isoformat(), end.isoformat())
+    flow_all = storage.get_trading_flow_multi(tickers, days=10)
+
+    results: dict[str, dict | None] = {}
+    for ticker in tickers:
+        t_ohlcv = (
+            ohlcv_all[ohlcv_all["ticker"] == ticker].copy()
+            if not ohlcv_all.empty else pd.DataFrame()
+        )
+        if len(t_ohlcv) < 60:
+            results[ticker] = None
+            continue
+
+        t_flow = (
+            flow_all[flow_all["ticker"] == ticker].head(5)
+            if not flow_all.empty else pd.DataFrame()
+        )
+        ind = _indicators_from_ohlcv(t_ohlcv, t_flow)
+        ind["ticker"] = ticker
+        results[ticker] = ind
+
+    return results
 
 
 def check_entry(ind: dict, rules: dict | None = None) -> dict:

@@ -108,9 +108,15 @@ def run(target_date: date | None = None, cash: float = 0.0) -> dict:
 
         log.info(f"유니버스 필터 후 후보 풀: {len(filtered)}종목")
 
-        for _, row in filtered.iterrows():
-            ticker = row["ticker"]
-            ind = signals.compute_indicators(ticker, end_date=target)
+        # 전체 지표를 2번의 쿼리로 일괄 계산
+        filtered_tickers = filtered["ticker"].tolist()
+        all_indicators = signals.compute_indicators_batch(filtered_tickers, end_date=target)
+        ticker_row = {row["ticker"]: row for _, row in filtered.iterrows()}
+
+        sl_pct = abs(rules["exit_signal"]["stop_loss_pct"]) / 100
+        tp_pct = rules["exit_signal"]["take_profit_pct"] / 100
+
+        for ticker, ind in all_indicators.items():
             if ind is None:
                 continue
 
@@ -118,9 +124,7 @@ def run(target_date: date | None = None, cash: float = 0.0) -> dict:
             if not entry_result["passed"]:
                 continue
 
-            # 진입 가이드 계산 (규칙 기반)
-            sl_pct = abs(rules["exit_signal"]["stop_loss_pct"]) / 100
-            tp_pct = rules["exit_signal"]["take_profit_pct"] / 100
+            row = ticker_row[ticker]
             entry_guide = {
                 "entry_price": ind["close"],
                 "stop_loss_price": round(ind["close"] * (1 - sl_pct)),
