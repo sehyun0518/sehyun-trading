@@ -129,6 +129,11 @@ def switch_mode(request: Request, body: dict, _: dict = Depends(verify_token)):
     return {"mode": get_mode()}
 
 
+def _is_admin(user_id: int) -> bool:
+    """관리자 여부 확인 — ADMIN_USER_ID 환경변수(기본 1)와 비교."""
+    return user_id == int(os.getenv("ADMIN_USER_ID", "1"))
+
+
 def _user_kis_creds(user: dict) -> dict | None:
     """유저 DB에서 복호화한 KIS 자격증명 반환. 없으면 None."""
     mode = get_mode()
@@ -154,6 +159,18 @@ def portfolio(request: Request, current_user: dict = Depends(verify_token)):
     user = storage.get_user_by_id(current_user["id"])
     user_creds = _user_kis_creds(user) if user else None
 
+    if user_creds is None:
+        if not _is_admin(current_user["id"]):
+            return {
+                "mode": kis_client.get_mode(),
+                "holdings": [],
+                "summary": {
+                    "total_eval": 0, "cash": 0, "total": 0,
+                    "cash_ratio": 100.0, "position_count": 0,
+                },
+            }
+        # 관리자는 env 자격증명 fallback 허용
+
     try:
         kis_holdings = kis_client.get_holdings(user_creds=user_creds)
     except Exception as e:
@@ -161,9 +178,12 @@ def portfolio(request: Request, current_user: dict = Depends(verify_token)):
 
     holdings = []
     total_eval = 0
+    total_pl = 0
+    total_cost = 0
     for h in kis_holdings:
         holdings.append({
             "ticker":        h["ticker"],
+            "name":          h.get("name", h["ticker"]),
             "quantity":      h["quantity"],
             "avg_price":     h["avg_price"],
             "current_price": h["current_price"],
@@ -173,9 +193,12 @@ def portfolio(request: Request, current_user: dict = Depends(verify_token)):
             "updated_at":    "",
         })
         total_eval += h["eval_amount"]
+        total_pl   += h["eval_pl"]
+        total_cost += h["avg_price"] * h["quantity"]
 
     cash = float(os.getenv("PORTFOLIO_CASH", "10000000")) - total_eval
     total = cash + total_eval
+    total_pl_pct = round(total_pl / total_cost * 100, 2) if total_cost > 0 else 0.0
 
     return {
         "mode": get_mode(),
@@ -186,6 +209,8 @@ def portfolio(request: Request, current_user: dict = Depends(verify_token)):
             "total":          round(total),
             "cash_ratio":     round(cash / total * 100, 1) if total > 0 else 100.0,
             "position_count": len(holdings),
+            "total_pl":       round(total_pl),
+            "total_pl_pct":   total_pl_pct,
         },
     }
 
@@ -252,6 +277,9 @@ def place_order(request: Request, body: dict, current_user: dict = Depends(verif
 
     user = storage.get_user_by_id(current_user["id"])
     user_creds = _user_kis_creds(user) if user else None
+
+    if user_creds is None and not _is_admin(current_user["id"]):
+        raise HTTPException(status_code=403, detail="KIS 자격증명을 먼저 설정해주세요. (설정 페이지)")
 
     try:
         result = kis_client.place_order(ticker, qty, side, user_creds=user_creds)

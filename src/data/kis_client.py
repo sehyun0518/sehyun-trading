@@ -60,9 +60,10 @@ _RATE_LIMIT = 19          # 20회 한도보다 1 여유 (오차 흡수)
 _WINDOW_SEC = 1.0
 _last_call_times: list[float] = []
 
-# 토큰 캐시: 시장용 / 계좌용 각각 관리
+# 토큰 캐시: 시장용 / 계좌용(env) / 유저별(app_key prefix → cache)
 _market_token_cache: dict[str, Any] = {"access_token": None, "expires_at": None}
 _account_token_cache: dict[str, Any] = {"access_token": None, "expires_at": None}
+_user_token_caches: dict[str, dict[str, Any]] = {}  # app_key[:4] → cache dict
 
 
 def get_mode() -> str:
@@ -188,11 +189,16 @@ def _get_market(path: str, tr_id: str, params: dict) -> dict:
     return data
 
 
-def _get_account(path: str, tr_id: str, params: dict) -> dict:
-    """계좌 데이터 조회 — 모드에 따라 paper/real 자격증명."""
-    creds = _acc_creds()
+def _get_account(path: str, tr_id: str, params: dict, override_creds: dict | None = None) -> dict:
+    """계좌 데이터 조회 — override_creds 있으면 유저 자격증명, 없으면 env 사용."""
+    if override_creds:
+        creds = override_creds
+        cache = _user_token_caches.setdefault(creds["app_key"][:4], {"access_token": None, "expires_at": None})
+        token = _fetch_token(creds["base_url"], creds["app_key"], creds["app_secret"], cache)
+    else:
+        creds = _acc_creds()
+        token = _acc_token()
     _rate_limit_wait()
-    token = _acc_token()
     headers = {
         "content-type": "application/json; charset=utf-8",
         "authorization": f"Bearer {token}",
@@ -226,11 +232,16 @@ def _get_hashkey(body: dict) -> str:
     return resp.json()["HASH"]
 
 
-def _post_account(path: str, tr_id: str, body: dict) -> dict:
-    """계좌 주문 POST — hashkey 서명 포함."""
-    creds = _acc_creds()
+def _post_account(path: str, tr_id: str, body: dict, override_creds: dict | None = None) -> dict:
+    """계좌 주문 POST — hashkey 서명 포함. override_creds 있으면 유저 자격증명 사용."""
+    if override_creds:
+        creds = override_creds
+        cache = _user_token_caches.setdefault(creds["app_key"][:4], {"access_token": None, "expires_at": None})
+        token = _fetch_token(creds["base_url"], creds["app_key"], creds["app_secret"], cache)
+    else:
+        creds = _acc_creds()
+        token = _acc_token()
     _rate_limit_wait()
-    token = _acc_token()
     hashkey = _get_hashkey(body)
     headers = {
         "content-type": "application/json; charset=utf-8",
@@ -287,6 +298,7 @@ def get_holdings(user_creds: dict | None = None) -> list[dict]:
             "CTX_AREA_FK100": "",
             "CTX_AREA_NK100": "",
         },
+        override_creds=creds if user_creds else None,
     )
     result = []
     for item in data.get("output1", []):
@@ -295,6 +307,7 @@ def get_holdings(user_creds: dict | None = None) -> list[dict]:
             continue
         result.append({
             "ticker": item["pdno"],
+            "name": item.get("prdt_name", item["pdno"]),
             "quantity": qty,
             "avg_price": float(item.get("pchs_avg_pric", 0)),
             "current_price": float(item.get("prpr", 0)),
@@ -398,7 +411,8 @@ def place_order(ticker: str, qty: int, side: str, user_creds: dict | None = None
         "ORD_QTY": str(qty),
         "ORD_UNPR": "0",        # 시장가 단가는 0
     }
-    data = _post_account("/uapi/domestic-stock/v1/trading/order-cash", tr_id, body)
+    data = _post_account("/uapi/domestic-stock/v1/trading/order-cash", tr_id, body,
+                         override_creds=creds if user_creds else None)
     output = data.get("output", {})
 
     # 체결가 조회 (시장가는 즉시 체결)

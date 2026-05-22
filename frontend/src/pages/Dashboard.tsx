@@ -42,8 +42,8 @@ export default function Dashboard() {
 
   const s = portfolio?.summary
   const mode = portfolio?.mode === 'paper' ? '모의투자' : '실전투자'
-  const pieData = portfolio?.holdings.map(h => ({ name: h.ticker, value: h.eval_amount })) ?? []
-  const barData = portfolio?.holdings.map(h => ({ name: h.ticker, pct: h.eval_pl_pct })) ?? []
+  const pieData = portfolio?.holdings.map(h => ({ name: h.name || h.ticker, value: h.eval_amount })) ?? []
+  const barData = portfolio?.holdings.map(h => ({ name: h.name || h.ticker, pct: h.eval_pl_pct })) ?? []
 
   return (
     <div className="space-y-8">
@@ -61,18 +61,35 @@ export default function Dashboard() {
           <h2 className="text-base font-semibold text-gray-200">포트폴리오 현황</h2>
           <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-400">{mode}</span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
           {[
             { label: '총평가금액', value: `${fmt(s?.total ?? 0)}원` },
             { label: '주식평가금액', value: `${fmt(s?.total_eval ?? 0)}원` },
             { label: '현금', value: `${fmt(s?.cash ?? 0)}원` },
-            { label: '현금비중', value: `${s?.cash_ratio ?? 100}%` },
           ].map(({ label, value }) => (
             <div key={label} className="bg-gray-900 rounded-lg p-4 border border-gray-800">
               <div className="text-xs text-gray-500 mb-1">{label}</div>
               <div className="text-lg font-semibold">{value}</div>
             </div>
           ))}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <div className="text-xs text-gray-500 mb-1">현금비중</div>
+            <div className="text-lg font-semibold">{s?.cash_ratio ?? 100}%</div>
+          </div>
+          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <div className="text-xs text-gray-500 mb-1">전체 손익금액</div>
+            <div className={`text-lg font-semibold ${(s?.total_pl ?? 0) > 0 ? 'text-red-400' : (s?.total_pl ?? 0) < 0 ? 'text-blue-400' : ''}`}>
+              {(s?.total_pl ?? 0) > 0 ? '+' : ''}{fmt(s?.total_pl ?? 0)}원
+            </div>
+          </div>
+          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <div className="text-xs text-gray-500 mb-1">전체 손익률</div>
+            <div className={`text-lg font-semibold ${(s?.total_pl_pct ?? 0) > 0 ? 'text-red-400' : (s?.total_pl_pct ?? 0) < 0 ? 'text-blue-400' : ''}`}>
+              {(s?.total_pl_pct ?? 0) > 0 ? '+' : ''}{(s?.total_pl_pct ?? 0).toFixed(2)}%
+            </div>
+          </div>
         </div>
       </section>
 
@@ -124,7 +141,7 @@ export default function Dashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 border-b border-gray-800">
-                  {['티커', '수량', '평균단가', '현재가', '평가금액', '손익률', ''].map(h => (
+                  {['종목', '수량', '평균단가', '현재가', '평가금액', '손익률', ''].map(h => (
                     <th key={h} className="pb-2 pr-6 font-medium">{h}</th>
                   ))}
                 </tr>
@@ -132,7 +149,10 @@ export default function Dashboard() {
               <tbody>
                 {portfolio.holdings.map(h => (
                   <tr key={h.ticker} className="border-b border-gray-900 hover:bg-gray-900">
-                    <td className="py-3 pr-6 font-mono text-blue-300">{h.ticker}</td>
+                    <td className="py-3 pr-6">
+                      <div className="font-medium">{h.name}</div>
+                      <div className="text-xs text-gray-500 font-mono">{h.ticker}</div>
+                    </td>
                     <td className="py-3 pr-6">{h.quantity}주</td>
                     <td className="py-3 pr-6">{fmt(h.avg_price)}원</td>
                     <td className="py-3 pr-6">{fmt(h.current_price)}원</td>
