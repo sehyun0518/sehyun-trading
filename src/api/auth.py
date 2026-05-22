@@ -4,13 +4,12 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 _ALGORITHM = "HS256"
 _EXPIRE_DAYS = 30
 _bearer = HTTPBearer()
-_pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def _jwt_secret() -> str:
@@ -21,11 +20,11 @@ def _jwt_secret() -> str:
 
 
 def hash_password(password: str) -> str:
-    return _pwd_ctx.hash(password)
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return _pwd_ctx.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
 def create_token(user_id: int, email: str) -> str:

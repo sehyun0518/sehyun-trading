@@ -917,20 +917,6 @@ wheels = [
 ]
 
 [[package]]
-name = "passlib"
-version = "1.7.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b6/06/9da9ee59a67fae7761aab3ccc84fa4f3f33f125b370f1ccdb915bf967c11/passlib-1.7.4.tar.gz", hash = "sha256:defd50f72b65c5402ab2c573830a6978e5f202ad0d984793c8dde2c4152ebe04", size = 689844, upload-time = "2020-10-08T19:00:52.121Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/a4/ab6b7589382ca3df236e03faa71deac88cae040af60c071a78d254a62172/passlib-1.7.4-py2.py3-none-any.whl", hash = "sha256:aa6bca462b8d8bda89c70b382f0c298a20b5560af6cbfa2dce410c0a2fb669f1", size = 525554, upload-time = "2020-10-08T19:00:49.856Z" },
-]
-
-[package.optional-dependencies]
-bcrypt = [
-    { name = "bcrypt" },
-]
-
-[[package]]
 name = "pillow"
 version = "12.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1293,13 +1279,13 @@ dependencies = [
     { name = "alembic" },
     { name = "anthropic" },
     { name = "backtrader" },
+    { name = "bcrypt" },
     { name = "cryptography" },
     { name = "fastapi" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pandas-ta" },
-    { name = "passlib", extra = ["bcrypt"] },
     { name = "psycopg2-binary" },
     { name = "pykrx" },
     { name = "python-dotenv" },
@@ -1323,13 +1309,13 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.13.0" },
     { name = "anthropic", specifier = ">=0.40.0" },
     { name = "backtrader", specifier = ">=1.9.78.123" },
+    { name = "bcrypt", specifier = ">=4.0.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "matplotlib", specifier = ">=3.9.0" },
     { name = "numpy", specifier = ">=1.26.0" },
     { name = "pandas", specifier = ">=2.2.0" },
     { name = "pandas-ta", specifier = ">=0.3.14b0" },
-    { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7.4" },
     { name = "psycopg2-binary", specifier = ">=2.9.9" },
     { name = "pykrx", specifier = ">=1.0.47" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
