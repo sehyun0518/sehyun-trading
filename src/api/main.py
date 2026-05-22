@@ -20,6 +20,7 @@ from slowapi.util import get_remote_address
 
 from src.api.auth import create_token, hash_password, verify_password, verify_token
 from src.data import kis_client, secrets, storage
+from src.data.kis_client import KISBusinessError
 from src.data.kis_client import get_mode, set_mode
 from src.notifications.webhook import notify_order
 from src.rules.engine import run as run_engine
@@ -188,8 +189,10 @@ def portfolio(request: Request, current_user: dict = Depends(verify_token)):
 
     try:
         kis_holdings = kis_client.get_holdings(user_creds=user_creds)
+    except KISBusinessError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"KIS 잔고 조회 실패: {e}")
+        raise HTTPException(status_code=502, detail=f"KIS 연결 오류: {e}")
 
     er = _exit_rules()
     holdings = []
@@ -308,8 +311,10 @@ def place_order(request: Request, body: dict, current_user: dict = Depends(verif
 
     try:
         result = kis_client.place_order(ticker, qty, side, user_creds=user_creds)
+    except KISBusinessError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"주문 실패: {e}")
+        raise HTTPException(status_code=502, detail=f"KIS 연결 오류: {e}")
 
     storage.save_order(
         user_id=current_user["id"],
