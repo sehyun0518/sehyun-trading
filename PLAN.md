@@ -238,15 +238,15 @@ orders      (id PK, user_id, ticker, side, qty, price, executed_at, kis_order_no
 - [x] 8-4. `kis_client.get_holdings(user_creds)` per-user 자격증명 지원
 - [x] 8-5. storage 함수 `user_id` 인자화 (holdings, reports)
 
-### 🟢 Phase 9: 운영 안정성 (3주차)
+### ✅ Phase 9: 운영 안정성 (완료)
 
 **Why:** 공개 서비스는 죽으면 안 된다.
 
-- [ ] 9-1. PostgreSQL 일일 `pg_dump` → S3 (7일 후 Glacier, 30일 삭제)
-- [ ] 9-2. Sentry Hobby (FastAPI 미들웨어 + 이메일 알림)
-- [ ] 9-3. GitHub Actions CI/CD (`main` push 시 SSH + `git pull` + restart)
-- [ ] 9-4. UptimeRobot 헬스체크 (5분 간격)
-- [ ] 9-5. 로그 영구화 (logrotate, 30일 보존)
+- [x] 9-1. PostgreSQL 일일 `pg_dump` → S3 (`scripts/backup_db.py`, 03:00 UTC cron)
+- [x] 9-2. Sentry 초기화 (`SENTRY_DSN` 환경변수, FastAPI 시작 시 자동 연동)
+- [x] 9-3. GitHub Actions CI/CD (`main` push 시 자동 배포, `.github/workflows/deploy.yml`)
+- [ ] 9-4. UptimeRobot 헬스체크 — `https://api.sehyun0518.dev/api/health` 5분 간격 수동 등록
+- [x] 9-5. 로그 영구화 (`deploy/logrotate.conf`, 30일 보존)
 
 ### 🟢 Phase 10: UX 핵심 기능 (4주차)
 

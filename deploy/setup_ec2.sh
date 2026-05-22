@@ -121,6 +121,12 @@ WARM_CMD="cd $APP_DIR && $UV run python scripts/warm_candidates_cache.py >> $APP
 (crontab -u "$APP_USER" -l 2>/dev/null; echo "0 7 * * 1 $WEEKLY_CMD") | sort -u | crontab -u "$APP_USER" -
 # 장 시작 직후(09:05 KST = 00:05 UTC) candidates 캐시 프리워밍
 (crontab -u "$APP_USER" -l 2>/dev/null; echo "5 0 * * 1-5 $WARM_CMD") | sort -u | crontab -u "$APP_USER" -
+# DB 백업 (03:00 UTC = 12:00 KST)
+BACKUP_CMD="set -a && source $APP_DIR/.env && set +a && cd $APP_DIR && $UV run python scripts/backup_db.py >> $APP_DIR/data/cron.log 2>&1"
+(crontab -u "$APP_USER" -l 2>/dev/null; echo "0 3 * * * $BACKUP_CMD") | sort -u | crontab -u "$APP_USER" -
+
+# logrotate 설정
+cp "$APP_DIR/deploy/logrotate.conf" /etc/logrotate.d/sehyun-trading
 
 echo ""
 echo "✅ 설정 완료!"

@@ -7,6 +7,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
+import sentry_sdk
+if _sentry_dsn := os.getenv("SENTRY_DSN"):
+    sentry_sdk.init(dsn=_sentry_dsn, traces_sample_rate=0.1)
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
