@@ -154,6 +154,16 @@ def portfolio(request: Request, current_user: dict = Depends(verify_token)):
     user = storage.get_user_by_id(current_user["id"])
     user_creds = _user_kis_creds(user) if user else None
 
+    if user_creds is None:
+        return {
+            "mode": kis_client.get_mode(),
+            "holdings": [],
+            "summary": {
+                "total_eval": 0, "cash": 0, "total": 0,
+                "cash_ratio": 100.0, "position_count": 0,
+            },
+        }
+
     try:
         kis_holdings = kis_client.get_holdings(user_creds=user_creds)
     except Exception as e:
