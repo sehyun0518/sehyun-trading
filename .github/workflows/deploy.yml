@@ -1,0 +1,24 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            git config --global --add safe.directory /opt/sehyun-trading
+            cd /opt/sehyun-trading
+            sudo git pull
+            sudo -u trading /usr/local/bin/uv sync --no-dev
+            sudo -u trading bash -c "cd /opt/sehyun-trading && set -a && source .env && set +a && /usr/local/bin/uv run alembic upgrade head"
+            sudo systemctl restart sehyun-trading
+            echo "배포 완료: $(date)"
