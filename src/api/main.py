@@ -2,6 +2,7 @@
 import json
 import os
 from datetime import date
+from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -129,6 +130,20 @@ def switch_mode(request: Request, body: dict, _: dict = Depends(verify_token)):
     return {"mode": get_mode()}
 
 
+@lru_cache(maxsize=1)
+def _exit_rules() -> dict:
+    """rules.yaml에서 손절/목표 비율 로드 (서버 재시작 시 갱신)."""
+    import yaml
+    path = Path(__file__).parent.parent.parent / "config" / "rules.yaml"
+    with open(path) as f:
+        rules = yaml.safe_load(f)
+    sig = rules.get("exit_signal", {})
+    return {
+        "sl_pct": abs(sig.get("stop_loss_pct", 7)) / 100,
+        "tp_pct": sig.get("take_profit_pct", 15) / 100,
+    }
+
+
 def _is_admin(user_id: int) -> bool:
     """관리자 여부 확인 — ADMIN_USER_ID 환경변수(기본 1)와 비교."""
     return user_id == int(os.getenv("ADMIN_USER_ID", "1"))
@@ -176,20 +191,24 @@ def portfolio(request: Request, current_user: dict = Depends(verify_token)):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"KIS 잔고 조회 실패: {e}")
 
+    er = _exit_rules()
     holdings = []
     total_eval = 0
     total_pl = 0
     total_cost = 0
     for h in kis_holdings:
+        avg = h["avg_price"]
         holdings.append({
             "ticker":        h["ticker"],
             "name":          h.get("name", h["ticker"]),
             "quantity":      h["quantity"],
-            "avg_price":     h["avg_price"],
+            "avg_price":     avg,
             "current_price": h["current_price"],
             "eval_amount":   h["eval_amount"],
             "eval_pl":       h["eval_pl"],
             "eval_pl_pct":   h["eval_pl_pct"],
+            "stop_loss":     round(avg * (1 - er["sl_pct"])),
+            "take_profit":   round(avg * (1 + er["tp_pct"])),
             "updated_at":    "",
         })
         total_eval += h["eval_amount"]

@@ -141,7 +141,7 @@ export default function Dashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 border-b border-gray-800">
-                  {['종목', '수량', '평균단가', '현재가', '평가금액', '손익률', ''].map(h => (
+                  {['종목', '수량', '평균단가', '현재가', '평가금액', '손익률', '손절가', '목표가', ''].map(h => (
                     <th key={h} className="pb-2 pr-6 font-medium">{h}</th>
                   ))}
                 </tr>
@@ -158,10 +158,12 @@ export default function Dashboard() {
                     <td className="py-3 pr-6">{fmt(h.current_price)}원</td>
                     <td className="py-3 pr-6">{fmt(h.eval_amount)}원</td>
                     <td className="py-3 pr-6">{pct(h.eval_pl_pct)}</td>
+                    <td className="py-3 pr-6 text-blue-400">{fmt(h.stop_loss)}</td>
+                    <td className="py-3 pr-6 text-red-400">{fmt(h.take_profit)}</td>
                     <td className="py-3">
                       <button
                         onClick={() => {
-                          setModal({ ticker: h.ticker, name: h.ticker, side: 'sell', price: h.current_price, maxQty: h.quantity })
+                          setModal({ ticker: h.ticker, name: h.name, side: 'sell', price: h.current_price, maxQty: h.quantity })
                           setQty(h.quantity)
                         }}
                         className="text-xs px-2 py-1 rounded bg-blue-900 text-blue-300 hover:bg-blue-800 transition-colors"
