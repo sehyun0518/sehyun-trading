@@ -14,6 +14,34 @@ function pct(n: number) {
 
 const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b']
 
+const RULES = {
+  maxPositions: 5,
+  minKrw: 500_000,
+  maxKrw: 1_000_000,
+  minCashRatio: 0.20,
+}
+
+interface RecommendedQty {
+  qty: number
+  amount: number
+}
+
+function calcRecommendedQty(
+  entryPrice: number,
+  cash: number,
+  total: number,
+  currentPositions: number
+): RecommendedQty | 'full' | 'insufficient' {
+  if (currentPositions >= RULES.maxPositions) return 'full'
+  const investable = cash - total * RULES.minCashRatio
+  if (investable <= 0) return 'insufficient'
+  const perPosition = Math.min(RULES.maxKrw, investable)
+  if (perPosition < RULES.minKrw) return 'insufficient'
+  const qty = Math.floor(perPosition / entryPrice)
+  if (qty === 0) return 'insufficient'
+  return { qty, amount: qty * entryPrice }
+}
+
 interface OrderModal {
   ticker: string; name: string; side: 'buy' | 'sell'; price: number; maxQty?: number
 }
@@ -190,7 +218,7 @@ export default function Dashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 border-b border-gray-800">
-                  {['종목', '종가', 'MA20 이격', 'RSI', '거래량비', '외국인 5일', '손절가', '목표가', ''].map(h => (
+                  {['종목', '종가', 'MA20 이격', 'RSI', '거래량비', '외국인 5일', '손절가', '목표가', '추천 주수', ''].map(h => (
                     <th key={h} className="pb-2 pr-5 font-medium">{h}</th>
                   ))}
                 </tr>
@@ -209,11 +237,30 @@ export default function Dashboard() {
                     <td className="py-3 pr-5">{fmt(c.foreign_net_5d)}</td>
                     <td className="py-3 pr-5 text-blue-400">{fmt(c.stop_loss)}</td>
                     <td className="py-3 pr-5 text-red-400">{fmt(c.take_profit)}</td>
+                    <td className="py-3 pr-5">
+                      {(() => {
+                        const rec = calcRecommendedQty(
+                          c.entry_price,
+                          s?.cash ?? 0,
+                          s?.total ?? 0,
+                          s?.position_count ?? 0,
+                        )
+                        if (rec === 'full') return <span className="text-xs text-gray-600">포지션 가득</span>
+                        if (rec === 'insufficient') return <span className="text-xs text-gray-600">자금 부족</span>
+                        return (
+                          <div>
+                            <span className="font-semibold text-green-400">{rec.qty}주</span>
+                            <div className="text-xs text-gray-500">≈{fmt(rec.amount)}원</div>
+                          </div>
+                        )
+                      })()}
+                    </td>
                     <td className="py-3">
                       <button
                         onClick={() => {
+                          const rec = calcRecommendedQty(c.entry_price, s?.cash ?? 0, s?.total ?? 0, s?.position_count ?? 0)
                           setModal({ ticker: c.ticker, name: c.name, side: 'buy', price: c.entry_price })
-                          setQty(1)
+                          setQty(typeof rec === 'object' ? rec.qty : 1)
                         }}
                         className="text-xs px-2 py-1 rounded bg-red-900 text-red-300 hover:bg-red-800 transition-colors"
                       >매수</button>
