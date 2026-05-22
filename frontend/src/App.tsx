@@ -2,6 +2,7 @@ import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Dashboard from './pages/Dashboard'
 import Reports from './pages/Reports'
+import Orders from './pages/Orders'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Settings from './pages/Settings'
@@ -60,6 +61,9 @@ export default function App() {
                 <NavLink to="/reports" className={({ isActive }) => `${nav} ${isActive ? active : inactive}`}>
                   리포트
                 </NavLink>
+                <NavLink to="/orders" className={({ isActive }) => `${nav} ${isActive ? active : inactive}`}>
+                  주문내역
+                </NavLink>
                 <NavLink to="/settings" className={({ isActive }) => `${nav} ${isActive ? active : inactive}`}>
                   설정
                 </NavLink>
@@ -89,6 +93,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/orders" element={<Orders />} />
                 <Route path="/settings" element={<Settings />} />
               </Routes>
             </main>

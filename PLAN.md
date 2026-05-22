@@ -248,13 +248,13 @@ orders      (id PK, user_id, ticker, side, qty, price, executed_at, kis_order_no
 - [ ] 9-4. UptimeRobot 헬스체크 — `https://api.sehyun0518.dev/api/health` 5분 간격 수동 등록
 - [x] 9-5. 로그 영구화 (`deploy/logrotate.conf`, 30일 보존)
 
-### 🟢 Phase 10: UX 핵심 기능 (4주차)
+### ✅ Phase 10: UX 핵심 기능 (4주차)
 
-- [ ] 10-1. 대시보드 30초 폴링 (React Query/SWR)
-- [ ] 10-2. 매수/매도 웹 UI (확인 모달 필수)
-- [ ] 10-3. 주문 히스토리 페이지
-- [ ] 10-4. 성과 차트 (recharts: 누적 수익률·일일 손익·종목 비중)
-- [ ] 10-5. Slack/Discord/Telegram webhook 알림 (손절·목표가 도달)
+- [x] 10-1. 대시보드 30초 폴링 (SWR)
+- [x] 10-2. 매수/매도 웹 UI (확인 모달)
+- [x] 10-3. 주문 히스토리 페이지 (/orders)
+- [x] 10-4. 성과 차트 (recharts: 종목 비중 파이·손익률 바)
+- [x] 10-5. Slack/Discord webhook 알림 (주문 체결)
 
 ### ⚪ Phase 11: 서비스 광택 (5주차 이후)
 
