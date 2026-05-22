@@ -72,6 +72,8 @@ if ! grep -q "^DATABASE_URL" "$APP_DIR/.env"; then
 fi
 chown "$APP_USER":"$APP_USER" "$APP_DIR/.env"
 chmod 600 "$APP_DIR/.env"
+# 토큰 캐시 파일 권한 제한
+find "$APP_DIR/data" -name ".kis_token_*.json" -exec chmod 600 {} \; 2>/dev/null || true
 
 # ── 8. DB 스키마 초기화 ──────────────────────────────────────────────────────
 echo "[8/9] DB 스키마 초기화"
