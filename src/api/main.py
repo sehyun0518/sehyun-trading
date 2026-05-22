@@ -129,6 +129,11 @@ def switch_mode(request: Request, body: dict, _: dict = Depends(verify_token)):
     return {"mode": get_mode()}
 
 
+def _is_admin(user_id: int) -> bool:
+    """관리자 여부 확인 — ADMIN_USER_ID 환경변수(기본 1)와 비교."""
+    return user_id == int(os.getenv("ADMIN_USER_ID", "1"))
+
+
 def _user_kis_creds(user: dict) -> dict | None:
     """유저 DB에서 복호화한 KIS 자격증명 반환. 없으면 None."""
     mode = get_mode()
@@ -155,14 +160,16 @@ def portfolio(request: Request, current_user: dict = Depends(verify_token)):
     user_creds = _user_kis_creds(user) if user else None
 
     if user_creds is None:
-        return {
-            "mode": kis_client.get_mode(),
-            "holdings": [],
-            "summary": {
-                "total_eval": 0, "cash": 0, "total": 0,
-                "cash_ratio": 100.0, "position_count": 0,
-            },
-        }
+        if not _is_admin(current_user["id"]):
+            return {
+                "mode": kis_client.get_mode(),
+                "holdings": [],
+                "summary": {
+                    "total_eval": 0, "cash": 0, "total": 0,
+                    "cash_ratio": 100.0, "position_count": 0,
+                },
+            }
+        # 관리자는 env 자격증명 fallback 허용
 
     try:
         kis_holdings = kis_client.get_holdings(user_creds=user_creds)
@@ -262,6 +269,9 @@ def place_order(request: Request, body: dict, current_user: dict = Depends(verif
 
     user = storage.get_user_by_id(current_user["id"])
     user_creds = _user_kis_creds(user) if user else None
+
+    if user_creds is None and not _is_admin(current_user["id"]):
+        raise HTTPException(status_code=403, detail="KIS 자격증명을 먼저 설정해주세요. (설정 페이지)")
 
     try:
         result = kis_client.place_order(ticker, qty, side, user_creds=user_creds)
