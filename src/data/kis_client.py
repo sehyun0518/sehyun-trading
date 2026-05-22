@@ -1,4 +1,4 @@
-"""KIS Developers REST API 래퍼 — 조회 전용. 주문 API 미구현.
+"""KIS Developers REST API 래퍼.
 
 운영 모드 (KIS_MODE=paper|real):
   - 시장 데이터 (시세/수급) : 항상 실전 자격증명 사용 (동일 데이터, rate limit 회피)
@@ -12,6 +12,10 @@ from typing import Any
 
 import requests
 from dotenv import load_dotenv
+
+
+class KISBusinessError(Exception):
+    """KIS API가 정상 응답했으나 비즈니스 거부 (장종료, 잔고부족 등)."""
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
@@ -185,7 +189,7 @@ def _get_market(path: str, tr_id: str, params: dict) -> dict:
     resp.raise_for_status()
     data = resp.json()
     if data.get("rt_cd") != "0":
-        raise RuntimeError(f"KIS API error [{tr_id}]: {data.get('msg1', data)}")
+        raise KISBusinessError(f"KIS API error [{tr_id}]: {data.get('msg1', data)}")
     return data
 
 
@@ -211,7 +215,7 @@ def _get_account(path: str, tr_id: str, params: dict, override_creds: dict | Non
     resp.raise_for_status()
     data = resp.json()
     if data.get("rt_cd") != "0":
-        raise RuntimeError(f"KIS API error [{tr_id}]: {data.get('msg1', data)}")
+        raise KISBusinessError(f"KIS API error [{tr_id}]: {data.get('msg1', data)}")
     return data
 
 
@@ -255,7 +259,7 @@ def _post_account(path: str, tr_id: str, body: dict, override_creds: dict | None
     resp.raise_for_status()
     data = resp.json()
     if data.get("rt_cd") != "0":
-        raise RuntimeError(f"KIS 주문 오류 [{tr_id}]: {data.get('msg1', data)}")
+        raise KISBusinessError(f"KIS 주문 오류 [{tr_id}]: {data.get('msg1', data)}")
     return data
 
 
