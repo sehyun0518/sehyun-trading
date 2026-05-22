@@ -72,6 +72,26 @@ export interface UserInfo {
   kis_paper_account: string | null; kis_real_account: string | null
 }
 
+export interface Order {
+  id: number; user_id: number; ticker: string; name: string
+  side: string; qty: number; price: number
+  executed_at: string; kis_order_no: string
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(body),
+  })
+  handleUnauthorized(res.status)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `API ${path} → ${res.status}`)
+  }
+  return res.json()
+}
+
 export const api = {
   portfolio:      () => get<PortfolioResponse>('/api/portfolio'),
   candidates:     () => get<CandidatesResponse>('/api/candidates'),
@@ -80,4 +100,7 @@ export const api = {
   setMode:        (mode: 'paper' | 'real') => put<{ mode: string }>('/api/mode', { mode }),
   me:             () => get<UserInfo>('/api/auth/me'),
   updateSettings: (body: Record<string, string>) => put<{ ok: boolean }>('/api/auth/settings', body),
+  placeOrder:     (body: { ticker: string; name: string; side: string; qty: number }) =>
+                    post<{ order_no: string; ticker: string; qty: number; side: string; price: number }>('/api/orders', body),
+  orders:         () => get<Order[]>('/api/orders'),
 }

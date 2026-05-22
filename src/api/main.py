@@ -20,6 +20,7 @@ from slowapi.util import get_remote_address
 from src.api.auth import create_token, hash_password, verify_password, verify_token
 from src.data import kis_client, secrets, storage
 from src.data.kis_client import get_mode, set_mode
+from src.notifications.webhook import notify_order
 from src.rules.engine import run as run_engine
 
 limiter = Limiter(key_func=get_remote_address)
@@ -235,6 +236,50 @@ def candidates(request: Request, current_user: dict = Depends(verify_token)):
         "candidates": cands,
         "warnings":   result.get("warnings", []),
     }
+
+
+@app.post("/api/orders")
+@limiter.limit("30/minute")
+def place_order(request: Request, body: dict, current_user: dict = Depends(verify_token)):
+    """매수/매도 주문."""
+    ticker = body.get("ticker", "").strip()
+    name   = body.get("name", ticker)
+    side   = body.get("side", "")
+    qty    = int(body.get("qty", 0))
+
+    if not ticker or side not in ("buy", "sell") or qty <= 0:
+        raise HTTPException(status_code=400, detail="ticker, side(buy|sell), qty(>=1) 필수")
+
+    user = storage.get_user_by_id(current_user["id"])
+    user_creds = _user_kis_creds(user) if user else None
+
+    try:
+        result = kis_client.place_order(ticker, qty, side, user_creds=user_creds)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"주문 실패: {e}")
+
+    storage.save_order(
+        user_id=current_user["id"],
+        ticker=ticker, name=name, side=side,
+        qty=qty, price=result["price"],
+        kis_order_no=result.get("order_no", ""),
+    )
+
+    webhook_url = (user or {}).get("notify_slack_webhook") or (user or {}).get("notify_discord_webhook") or ""
+    if webhook_url:
+        notify_order(webhook_url, side, ticker, name, qty, result["price"])
+
+    return result
+
+
+@app.get("/api/orders")
+@limiter.limit("60/minute")
+def orders_list(request: Request, current_user: dict = Depends(verify_token)):
+    """주문 히스토리."""
+    df = storage.get_orders(user_id=current_user["id"])
+    if df.empty:
+        return []
+    return df.to_dict(orient="records")
 
 
 @app.get("/api/reports")

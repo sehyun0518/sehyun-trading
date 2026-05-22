@@ -362,20 +362,33 @@ def get_investor_trading(ticker: str) -> list[dict]:
     return result
 
 
-def place_order(ticker: str, qty: int, side: str) -> dict:
-    """모의투자 계좌에 시장가 주문. paper 모드에서만 동작.
+def place_order(ticker: str, qty: int, side: str, user_creds: dict | None = None) -> dict:
+    """시장가 주문. paper 모드 = 모의투자, real 모드 = 실전투자.
 
     side: 'buy' | 'sell'
-    반환: {'order_no': str, 'ticker': str, 'qty': int, 'side': str}
+    반환: {'order_no': str, 'ticker': str, 'qty': int, 'side': str, 'price': float}
     """
-    if _MODE != "paper":
-        raise RuntimeError("주문은 KIS_MODE=paper(모의투자) 모드에서만 허용됩니다.")
     if qty <= 0:
         raise ValueError(f"주문 수량은 1 이상이어야 합니다. 입력값: {qty}")
 
-    creds = _acc_creds()
+    if user_creds:
+        mode = user_creds.get("mode", _MODE)
+        creds = {
+            "app_key":    user_creds["app_key"],
+            "app_secret": user_creds["app_secret"],
+            "account":    user_creds["account"],
+            "base_url":   "https://openapivts.koreainvestment.com:29443" if mode == "paper" else _REAL_BASE_URL,
+        }
+    else:
+        mode = _MODE
+        creds = _acc_creds()
+
+    if mode == "paper":
+        tr_id = "VTTC0802U" if side == "buy" else "VTTC0801U"
+    else:
+        tr_id = "TTTC0802U" if side == "buy" else "TTTC0801U"
+
     acc_no, acc_prod = _parse_account(creds["account"])
-    tr_id = "VTTC0802U" if side == "buy" else "VTTC0801U"
 
     body = {
         "CANO": acc_no,
@@ -387,11 +400,21 @@ def place_order(ticker: str, qty: int, side: str) -> dict:
     }
     data = _post_account("/uapi/domestic-stock/v1/trading/order-cash", tr_id, body)
     output = data.get("output", {})
+
+    # 체결가 조회 (시장가는 즉시 체결)
+    price = 0.0
+    try:
+        quote = get_quote(ticker)
+        price = float(quote["current_price"])
+    except Exception:
+        pass
+
     return {
         "order_no": output.get("ODNO", ""),
         "ticker": ticker,
         "qty": qty,
         "side": side,
+        "price": price,
     }
 
 

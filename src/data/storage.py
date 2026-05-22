@@ -313,6 +313,28 @@ def get_report_content(report_date: str, user_id: int = 1) -> dict | None:
     }
 
 
+# ── 주문 히스토리 ──────────────────────────────────────────────────────────────
+
+def save_order(user_id: int, ticker: str, name: str, side: str,
+               qty: int, price: float, kis_order_no: str = "") -> None:
+    p = _ph()
+    now = datetime.now().isoformat()
+    sql = f"""
+        INSERT INTO orders (user_id, ticker, name, side, qty, price, executed_at, kis_order_no)
+        VALUES ({p},{p},{p},{p},{p},{p},{p},{p})
+    """
+    with _conn() as conn:
+        conn.cursor().execute(sql, (user_id, ticker, name, side, qty, price, now, kis_order_no))
+
+
+def get_orders(user_id: int, limit: int = 50) -> pd.DataFrame:
+    p = _ph()
+    return _read(
+        f"SELECT * FROM orders WHERE user_id={p} ORDER BY executed_at DESC LIMIT {limit}",
+        (user_id,)
+    )
+
+
 # ── 엔진 캐시 ─────────────────────────────────────────────────────────────────
 
 _CACHE_PATH = Path(__file__).parent.parent.parent / "data" / "engine_cache.json"
