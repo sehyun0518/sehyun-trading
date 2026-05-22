@@ -35,13 +35,14 @@ async function put<T>(path: string, body: unknown): Promise<T> {
 }
 
 export interface Holding {
-  ticker: string; quantity: number; avg_price: number
+  ticker: string; name: string; quantity: number; avg_price: number
   current_price: number; eval_amount: number
   eval_pl: number; eval_pl_pct: number; updated_at: string
 }
 export interface PortfolioSummary {
   total_eval: number; cash: number; total: number
   cash_ratio: number; position_count: number
+  total_pl: number; total_pl_pct: number
 }
 export interface PortfolioResponse {
   mode: string; holdings: Holding[]; summary: PortfolioSummary

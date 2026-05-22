@@ -307,6 +307,7 @@ def get_holdings(user_creds: dict | None = None) -> list[dict]:
             continue
         result.append({
             "ticker": item["pdno"],
+            "name": item.get("prdt_name", item["pdno"]),
             "quantity": qty,
             "avg_price": float(item.get("pchs_avg_pric", 0)),
             "current_price": float(item.get("prpr", 0)),
