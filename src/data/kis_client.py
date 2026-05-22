@@ -215,9 +215,8 @@ def _get_account(path: str, tr_id: str, params: dict, override_creds: dict | Non
     return data
 
 
-def _get_hashkey(body: dict) -> str:
+def _get_hashkey(body: dict, creds: dict) -> str:
     """KIS 주문 API용 hashkey 발급 (POST body 서명)."""
-    creds = _acc_creds()
     resp = requests.post(
         f"{creds['base_url']}/uapi/hashkey",
         json=body,
@@ -242,7 +241,7 @@ def _post_account(path: str, tr_id: str, body: dict, override_creds: dict | None
         creds = _acc_creds()
         token = _acc_token()
     _rate_limit_wait()
-    hashkey = _get_hashkey(body)
+    hashkey = _get_hashkey(body, creds)
     headers = {
         "content-type": "application/json; charset=utf-8",
         "authorization": f"Bearer {token}",

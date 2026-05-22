@@ -297,8 +297,14 @@ def place_order(request: Request, body: dict, current_user: dict = Depends(verif
     user = storage.get_user_by_id(current_user["id"])
     user_creds = _user_kis_creds(user) if user else None
 
-    if user_creds is None and not _is_admin(current_user["id"]):
-        raise HTTPException(status_code=403, detail="KIS 자격증명을 먼저 설정해주세요. (설정 페이지)")
+    if user_creds is None:
+        if not _is_admin(current_user["id"]):
+            raise HTTPException(status_code=403, detail="KIS 자격증명을 먼저 설정해주세요. (설정 페이지)")
+        # 관리자: env 자격증명 유효성 사전 확인
+        from src.data.kis_client import _acc_creds
+        env_creds = _acc_creds()
+        if not env_creds.get("app_key") or not env_creds.get("account"):
+            raise HTTPException(status_code=403, detail="KIS 자격증명을 설정 페이지에서 먼저 입력해주세요.")
 
     try:
         result = kis_client.place_order(ticker, qty, side, user_creds=user_creds)
