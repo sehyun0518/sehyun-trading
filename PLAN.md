@@ -228,15 +228,15 @@ orders      (id PK, user_id, ticker, side, qty, price, executed_at, kis_order_no
 
 **수정 파일:** `src/api/main.py`, `src/api/auth.py` (신규), `src/data/kis_client.py`, `src/data/secrets.py` (신규), `pyproject.toml`, `frontend/src/pages/Login.tsx`, `frontend/src/api/client.ts`
 
-### 🟡 Phase 8: 멀티유저 기반 (2주차)
+### ✅ Phase 8: 멀티유저 기반 (완료)
 
 **Why:** 공개 서비스에서 각 사용자가 본인 KIS 계정으로 사용해야 한다.
 
-- [ ] 8-1. `users` 테이블 신설, 기존 시계열에 `user_id` FK 추가
-- [ ] 8-2. Alembic 도입 (DB 마이그레이션 이력)
-- [ ] 8-3. 회원가입/로그인 페이지 + KIS 자격증명 설정 페이지
-- [ ] 8-4. `KISClient(user_id, mode)` 클래스 리팩터링 (전역 변수 제거)
-- [ ] 8-5. storage 함수 모두 `user_id` 인자화
+- [x] 8-1. `users` 테이블 신설, `holdings`/`reports`에 `user_id` FK 추가
+- [x] 8-2. Alembic 도입 (0001 초기 스키마 / 0002 Phase8 마이그레이션)
+- [x] 8-3. 회원가입/로그인 페이지 + KIS 자격증명 설정 페이지
+- [x] 8-4. `kis_client.get_holdings(user_creds)` per-user 자격증명 지원
+- [x] 8-5. storage 함수 `user_id` 인자화 (holdings, reports)
 
 ### 🟢 Phase 9: 운영 안정성 (3주차)
 

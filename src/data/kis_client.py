@@ -251,11 +251,26 @@ def _post_account(path: str, tr_id: str, body: dict) -> dict:
 
 # ── 공개 API ─────────────────────────────────────────────────────────────────
 
-def get_holdings() -> list[dict]:
-    """잔고 조회 → 보유 종목 리스트. 운영 모드(paper/real)에 따라 자동 분기."""
-    creds = _acc_creds()
+def get_holdings(user_creds: dict | None = None) -> list[dict]:
+    """잔고 조회 → 보유 종목 리스트.
+
+    user_creds: 유저 DB에서 복호화한 자격증명 dict (없으면 .env 사용)
+      { app_key, app_secret, account, mode }
+    """
+    if user_creds:
+        mode = user_creds.get("mode", _MODE)
+        creds = {
+            "app_key":    user_creds["app_key"],
+            "app_secret": user_creds["app_secret"],
+            "account":    user_creds["account"],
+            "base_url":   "https://openapivts.koreainvestment.com:29443" if mode == "paper" else _REAL_BASE_URL,
+            "tr_id":      "VTTC8434R" if mode == "paper" else "TTTC8434R",
+        }
+    else:
+        creds = _acc_creds()
     acc_no, acc_prod = _parse_account(creds["account"])
     # VTS(모의투자)는 PRCS_DVSN=00, OFL_YN=N 사용
+    effective_mode = user_creds.get("mode", _MODE) if user_creds else _MODE
     data = _get_account(
         "/uapi/domestic-stock/v1/trading/inquire-balance",
         creds["tr_id"],
@@ -263,12 +278,12 @@ def get_holdings() -> list[dict]:
             "CANO": acc_no,
             "ACNT_PRDT_CD": acc_prod,
             "AFHR_FLPR_YN": "N",
-            "OFL_YN": "N" if _MODE == "paper" else "",
+            "OFL_YN": "N" if effective_mode == "paper" else "",
             "INQR_DVSN": "02",
             "UNPR_DVSN": "01",
             "FUND_STTL_ICLD_YN": "N",
             "FNCG_AMT_AUTO_RDPT_YN": "N",
-            "PRCS_DVSN": "00" if _MODE == "paper" else "01",
+            "PRCS_DVSN": "00" if effective_mode == "paper" else "01",
             "CTX_AREA_FK100": "",
             "CTX_AREA_NK100": "",
         },
