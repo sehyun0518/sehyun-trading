@@ -1,7 +1,35 @@
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
+function getToken(): string {
+  return localStorage.getItem('auth_token') ?? ''
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+function handleUnauthorized(status: number) {
+  if (status === 401) {
+    localStorage.removeItem('auth_token')
+    window.location.href = '/login'
+  }
+}
+
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`)
+  const res = await fetch(`${BASE}${path}`, { headers: authHeaders() })
+  handleUnauthorized(res.status)
+  if (!res.ok) throw new Error(`API ${path} → ${res.status}`)
+  return res.json()
+}
+
+async function put<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(body),
+  })
+  handleUnauthorized(res.status)
   if (!res.ok) throw new Error(`API ${path} → ${res.status}`)
   return res.json()
 }
@@ -36,16 +64,6 @@ export interface ReportMeta {
 export interface ReportDetail {
   date: string; content: string
   candidates: unknown[]; warnings: unknown[]
-}
-
-async function put<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`API ${path} → ${res.status}`)
-  return res.json()
 }
 
 export const api = {

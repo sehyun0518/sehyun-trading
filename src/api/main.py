@@ -7,31 +7,49 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
-from src.data import storage
-from src.data import kis_client
+from src.api.auth import check_password, create_token, verify_token
+from src.data import kis_client, storage
 from src.data.kis_client import get_mode, set_mode
 from src.rules.engine import run as run_engine
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="KR Swing Advisor", version="1.0.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+_cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Vercel 배포 후 도메인으로 좁힐 것
-    allow_methods=["GET", "PUT"],
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "PUT", "POST"],
     allow_headers=["*"],
 )
 
 
 @app.get("/api/health")
-def health():
+@limiter.limit("60/minute")
+def health(request: Request):
     return {"status": "ok", "mode": get_mode()}
 
 
+@app.post("/api/auth/token")
+@limiter.limit("10/minute")
+def login(request: Request, body: dict):
+    """관리자 패스워드로 JWT 발급."""
+    if not check_password(body.get("password", "")):
+        raise HTTPException(status_code=401, detail="패스워드가 올바르지 않습니다.")
+    return {"access_token": create_token(), "token_type": "bearer"}
+
+
 @app.put("/api/mode")
-def switch_mode(body: dict):
+@limiter.limit("60/minute")
+def switch_mode(request: Request, body: dict, _: str = Depends(verify_token)):
     """운영 모드 전환 (재시작 없이)."""
     mode = body.get("mode", "")
     if mode not in ("paper", "real"):
@@ -41,7 +59,8 @@ def switch_mode(body: dict):
 
 
 @app.get("/api/portfolio")
-def portfolio():
+@limiter.limit("60/minute")
+def portfolio(request: Request, _: str = Depends(verify_token)):
     """보유 종목 + 포트폴리오 요약 — KIS API 실시간 조회."""
     try:
         kis_holdings = kis_client.get_holdings()
@@ -80,7 +99,8 @@ def portfolio():
 
 
 @app.get("/api/candidates")
-def candidates():
+@limiter.limit("60/minute")
+def candidates(request: Request, _: str = Depends(verify_token)):
     """최신 규칙 엔진 후보 종목 — 당일 캐시 우선, 없으면 실시간 계산."""
     try:
         cached = storage.get_engine_cache()
@@ -122,7 +142,8 @@ def candidates():
 
 
 @app.get("/api/reports")
-def reports_list():
+@limiter.limit("60/minute")
+def reports_list(request: Request, _: str = Depends(verify_token)):
     """주간 리포트 목록 (최신순)."""
     df = storage.get_reports(limit=20)
     result = []
@@ -140,13 +161,13 @@ def reports_list():
 
 
 @app.get("/api/reports/{report_date}")
-def report_detail(report_date: str):
+@limiter.limit("60/minute")
+def report_detail(request: Request, report_date: str, _: str = Depends(verify_token)):
     """특정 날짜 리포트 상세 (Markdown 본문 포함)."""
     data = storage.get_report_content(report_date)
     if data is None:
         raise HTTPException(status_code=404, detail="리포트를 찾을 수 없습니다.")
 
-    # content가 DB에 없으면 파일에서 읽기 (구형 리포트 호환)
     if not data.get("content") and data.get("file_path"):
         fp = Path(data["file_path"])
         if fp.exists():

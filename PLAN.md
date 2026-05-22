@@ -216,15 +216,15 @@ orders      (id PK, user_id, ticker, side, qty, price, executed_at, kis_order_no
 - 데이터 수집 / 규칙 엔진 / Claude 분석 / 리포트 / 백테스트 / 모의투자 KIS 연동
 - FastAPI 백엔드 + React 프론트엔드 / EC2 + Vercel 배포 / 도메인 + HTTPS
 
-### 🔴 Phase 7: 긴급 보안 강화 (1주차, 공개 전 필수)
+### ✅ Phase 7: 긴급 보안 강화 (완료)
 
 **Why:** 현재 API는 인증 없이 외부 노출. `/api/mode`로 모드 전환까지 가능.
 
-- [ ] 7-1. CORS 화이트리스트 (`CORS_ORIGINS` 환경변수)
-- [ ] 7-2. JWT 인증 미들웨어 (`/api/health` 외 전부 토큰 필수)
-- [ ] 7-3. KIS 자격증명 Fernet 암호화 (DB 저장)
-- [ ] 7-4. slowapi rate limiting (분당 60회)
-- [ ] 7-5. 토큰 캐시 파일 권한 600, .env 600
+- [x] 7-1. CORS 화이트리스트 (`CORS_ORIGINS` 환경변수)
+- [x] 7-2. JWT 인증 미들웨어 (`/api/health` 외 전부 토큰 필수)
+- [ ] 7-3. KIS 자격증명 Fernet 암호화 (DB 저장) → Phase 8 users 테이블과 함께 진행
+- [x] 7-4. slowapi rate limiting (분당 60회)
+- [x] 7-5. 토큰 캐시 파일 권한 600, .env 600
 
 **수정 파일:** `src/api/main.py`, `src/api/auth.py` (신규), `src/data/kis_client.py`, `src/data/secrets.py` (신규), `pyproject.toml`, `frontend/src/pages/Login.tsx`, `frontend/src/api/client.ts`
 
