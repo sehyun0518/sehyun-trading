@@ -13,13 +13,13 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from src.api.auth import check_password, create_token, verify_token
-from src.data import kis_client, storage
+from src.api.auth import create_token, hash_password, verify_password, verify_token
+from src.data import kis_client, secrets, storage
 from src.data.kis_client import get_mode, set_mode
 from src.rules.engine import run as run_engine
 
 limiter = Limiter(key_func=get_remote_address)
-app = FastAPI(title="KR Swing Advisor", version="1.0.0")
+app = FastAPI(title="KR Swing Advisor", version="2.0.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -38,19 +38,85 @@ def health(request: Request):
     return {"status": "ok", "mode": get_mode()}
 
 
+@app.post("/api/auth/register")
+@limiter.limit("10/minute")
+def register(request: Request, body: dict):
+    """신규 유저 등록."""
+    email = (body.get("email") or "").strip().lower()
+    password = body.get("password") or ""
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="email과 password가 필요합니다.")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="패스워드는 8자 이상이어야 합니다.")
+    if storage.get_user_by_email(email):
+        raise HTTPException(status_code=409, detail="이미 등록된 이메일입니다.")
+    user_id = storage.create_user(email, hash_password(password))
+    token = create_token(user_id, email)
+    return {"access_token": token, "token_type": "bearer", "user_id": user_id, "email": email}
+
+
 @app.post("/api/auth/token")
 @limiter.limit("10/minute")
 def login(request: Request, body: dict):
-    """관리자 패스워드로 JWT 발급."""
-    if not check_password(body.get("password", "")):
-        raise HTTPException(status_code=401, detail="패스워드가 올바르지 않습니다.")
-    return {"access_token": create_token(), "token_type": "bearer"}
+    """이메일/패스워드로 JWT 발급."""
+    email = (body.get("email") or "").strip().lower()
+    password = body.get("password") or ""
+    user = storage.get_user_by_email(email)
+    if not user or not verify_password(password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="이메일 또는 패스워드가 올바르지 않습니다.")
+    token = create_token(user["id"], user["email"])
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@app.get("/api/auth/me")
+@limiter.limit("60/minute")
+def me(request: Request, current_user: dict = Depends(verify_token)):
+    """현재 로그인 유저 정보."""
+    user = storage.get_user_by_id(current_user["id"])
+    if not user:
+        raise HTTPException(status_code=404, detail="유저를 찾을 수 없습니다.")
+    has_paper = bool(user.get("kis_paper_key_enc"))
+    has_real = bool(user.get("kis_real_key_enc"))
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "has_paper_creds": has_paper,
+        "has_real_creds": has_real,
+        "kis_paper_account": user.get("kis_paper_account"),
+        "kis_real_account": user.get("kis_real_account"),
+    }
+
+
+@app.put("/api/auth/settings")
+@limiter.limit("30/minute")
+def update_settings(request: Request, body: dict, current_user: dict = Depends(verify_token)):
+    """KIS 자격증명 및 알림 설정 저장."""
+    user_id = current_user["id"]
+    fields: dict = {}
+
+    for mode in ("paper", "real"):
+        key = body.get(f"kis_{mode}_app_key", "")
+        secret = body.get(f"kis_{mode}_app_secret", "")
+        account = body.get(f"kis_{mode}_account", "")
+        if key:
+            fields[f"kis_{mode}_key_enc"] = secrets.encrypt(key)
+        if secret:
+            fields[f"kis_{mode}_secret_enc"] = secrets.encrypt(secret)
+        if account:
+            fields[f"kis_{mode}_account"] = account
+
+    for field in ("notify_slack_webhook", "notify_discord_webhook"):
+        val = body.get(field)
+        if val is not None:
+            fields[field] = val
+
+    storage.update_user_kis(user_id, fields)
+    return {"ok": True}
 
 
 @app.put("/api/mode")
 @limiter.limit("60/minute")
-def switch_mode(request: Request, body: dict, _: str = Depends(verify_token)):
-    """운영 모드 전환 (재시작 없이)."""
+def switch_mode(request: Request, body: dict, _: dict = Depends(verify_token)):
     mode = body.get("mode", "")
     if mode not in ("paper", "real"):
         raise HTTPException(status_code=400, detail="mode는 'paper' 또는 'real'이어야 합니다.")
@@ -58,12 +124,33 @@ def switch_mode(request: Request, body: dict, _: str = Depends(verify_token)):
     return {"mode": get_mode()}
 
 
+def _user_kis_creds(user: dict) -> dict | None:
+    """유저 DB에서 복호화한 KIS 자격증명 반환. 없으면 None."""
+    mode = get_mode()
+    key_enc = user.get(f"kis_{mode}_key_enc") or ""
+    secret_enc = user.get(f"kis_{mode}_secret_enc") or ""
+    account = user.get(f"kis_{mode}_account") or ""
+    if not key_enc or not secret_enc or not account:
+        return None
+    try:
+        return {
+            "app_key":    secrets.decrypt(key_enc),
+            "app_secret": secrets.decrypt(secret_enc),
+            "account":    account,
+            "mode":       mode,
+        }
+    except Exception:
+        return None
+
+
 @app.get("/api/portfolio")
 @limiter.limit("60/minute")
-def portfolio(request: Request, _: str = Depends(verify_token)):
-    """보유 종목 + 포트폴리오 요약 — KIS API 실시간 조회."""
+def portfolio(request: Request, current_user: dict = Depends(verify_token)):
+    user = storage.get_user_by_id(current_user["id"])
+    user_creds = _user_kis_creds(user) if user else None
+
     try:
-        kis_holdings = kis_client.get_holdings()
+        kis_holdings = kis_client.get_holdings(user_creds=user_creds)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"KIS 잔고 조회 실패: {e}")
 
@@ -100,20 +187,25 @@ def portfolio(request: Request, _: str = Depends(verify_token)):
 
 @app.get("/api/candidates")
 @limiter.limit("60/minute")
-def candidates(request: Request, _: str = Depends(verify_token)):
-    """최신 규칙 엔진 후보 종목 — 당일 캐시 우선, 없으면 실시간 계산."""
+def candidates(request: Request, current_user: dict = Depends(verify_token)):
     try:
         cached = storage.get_engine_cache()
         if cached and cached.get("run_date") == date.today().isoformat():
             result = cached
         else:
-            result = run_engine()
+            result = run_engine(ignore_holdings=True)
             storage.save_engine_cache(result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+    # 유저 보유 종목 제외
+    user_holdings = storage.get_holdings(user_id=current_user["id"])
+    held_tickers = set(user_holdings["ticker"].tolist()) if not user_holdings.empty else set()
+
     cands = []
     for c in result["candidates"]:
+        if c["ticker"] in held_tickers:
+            continue
         ind = c["indicators"]
         ec  = c["entry_checks"]
         eg  = c["entry_guide"]
@@ -135,17 +227,16 @@ def candidates(request: Request, _: str = Depends(verify_token)):
         })
 
     return {
-        "run_date":  result["run_date"],
+        "run_date":   result["run_date"],
         "candidates": cands,
-        "warnings":  result.get("warnings", []),
+        "warnings":   result.get("warnings", []),
     }
 
 
 @app.get("/api/reports")
 @limiter.limit("60/minute")
-def reports_list(request: Request, _: str = Depends(verify_token)):
-    """주간 리포트 목록 (최신순)."""
-    df = storage.get_reports(limit=20)
+def reports_list(request: Request, current_user: dict = Depends(verify_token)):
+    df = storage.get_reports(limit=20, user_id=current_user["id"])
     result = []
     for _, row in df.iterrows():
         try:
@@ -162,9 +253,8 @@ def reports_list(request: Request, _: str = Depends(verify_token)):
 
 @app.get("/api/reports/{report_date}")
 @limiter.limit("60/minute")
-def report_detail(request: Request, report_date: str, _: str = Depends(verify_token)):
-    """특정 날짜 리포트 상세 (Markdown 본문 포함)."""
-    data = storage.get_report_content(report_date)
+def report_detail(request: Request, report_date: str, current_user: dict = Depends(verify_token)):
+    data = storage.get_report_content(report_date, user_id=current_user["id"])
     if data is None:
         raise HTTPException(status_code=404, detail="리포트를 찾을 수 없습니다.")
 

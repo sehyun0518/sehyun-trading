@@ -181,50 +181,104 @@ def get_trading_flow_multi(tickers: list[str], days: int = 10) -> pd.DataFrame:
     return _read(sql, (*tickers, cutoff))
 
 
+# ── 유저 ─────────────────────────────────────────────────────────────────────
+
+def create_user(email: str, password_hash: str) -> int:
+    p = _ph()
+    if _USE_PG:
+        sql = f"INSERT INTO users (email, password_hash) VALUES ({p},{p}) RETURNING id"
+        with _conn() as conn:
+            cur = conn.cursor()
+            cur.execute(sql, (email, password_hash))
+            return cur.fetchone()[0]
+    else:
+        sql = f"INSERT INTO users (email, password_hash) VALUES ({p},{p})"
+        with _conn() as conn:
+            cur = conn.cursor()
+            cur.execute(sql, (email, password_hash))
+            return cur.lastrowid
+
+
+def get_user_by_email(email: str) -> dict | None:
+    p = _ph()
+    df = _read(f"SELECT * FROM users WHERE email={p}", (email,))
+    if df.empty:
+        return None
+    row = df.iloc[0]
+    return row.to_dict()
+
+
+def get_user_by_id(user_id: int) -> dict | None:
+    p = _ph()
+    df = _read(f"SELECT * FROM users WHERE id={p}", (user_id,))
+    if df.empty:
+        return None
+    return df.iloc[0].to_dict()
+
+
+def update_user_kis(user_id: int, fields: dict) -> None:
+    """KIS 자격증명 + 알림 webhook 업데이트."""
+    p = _ph()
+    allowed = {
+        "kis_paper_key_enc", "kis_paper_secret_enc", "kis_paper_account",
+        "kis_real_key_enc", "kis_real_secret_enc", "kis_real_account",
+        "notify_slack_webhook", "notify_discord_webhook",
+    }
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return
+    set_clause = ", ".join(f"{k}={p}" for k in updates)
+    sql = f"UPDATE users SET {set_clause} WHERE id={p}"
+    with _conn() as conn:
+        conn.cursor().execute(sql, (*updates.values(), user_id))
+
+
 # ── 보유 종목 ────────────────────────────────────────────────────────────────
 
-def upsert_holdings(df: pd.DataFrame) -> int:
+def upsert_holdings(df: pd.DataFrame, user_id: int = 1) -> int:
     now = datetime.now().isoformat()
     records = [(row["ticker"], row["quantity"], row["avg_price"], row["current_price"],
-                row["eval_amount"], row["eval_pl"], row["eval_pl_pct"], now)
+                row["eval_amount"], row["eval_pl"], row["eval_pl_pct"], now, user_id)
                for _, row in df.iterrows()]
     p = _ph()
     if _USE_PG:
         sql = f"""
-            INSERT INTO holdings (ticker,quantity,avg_price,current_price,eval_amount,eval_pl,eval_pl_pct,updated_at)
-            VALUES ({p},{p},{p},{p},{p},{p},{p},{p})
+            INSERT INTO holdings (ticker,quantity,avg_price,current_price,eval_amount,eval_pl,eval_pl_pct,updated_at,user_id)
+            VALUES ({p},{p},{p},{p},{p},{p},{p},{p},{p})
             ON CONFLICT (ticker) DO UPDATE SET
                 quantity=EXCLUDED.quantity, avg_price=EXCLUDED.avg_price,
                 current_price=EXCLUDED.current_price, eval_amount=EXCLUDED.eval_amount,
                 eval_pl=EXCLUDED.eval_pl, eval_pl_pct=EXCLUDED.eval_pl_pct,
-                updated_at=EXCLUDED.updated_at
+                updated_at=EXCLUDED.updated_at, user_id=EXCLUDED.user_id
         """
     else:
-        sql = "INSERT OR REPLACE INTO holdings (ticker,quantity,avg_price,current_price,eval_amount,eval_pl,eval_pl_pct,updated_at) VALUES (?,?,?,?,?,?,?,?)"
+        sql = "INSERT OR REPLACE INTO holdings (ticker,quantity,avg_price,current_price,eval_amount,eval_pl,eval_pl_pct,updated_at,user_id) VALUES (?,?,?,?,?,?,?,?,?)"
     with _conn() as conn:
         conn.cursor().executemany(sql, records)
     return len(records)
 
 
-def get_holdings() -> pd.DataFrame:
-    return _read("SELECT * FROM holdings")
+def get_holdings(user_id: int = 1) -> pd.DataFrame:
+    p = _ph()
+    return _read(f"SELECT * FROM holdings WHERE user_id={p}", (user_id,))
 
 
 # ── 리포트 ───────────────────────────────────────────────────────────────────
 
 def save_report_meta(report_date: date, candidates: list, warnings: list,
-                     file_path: str, content: str = "") -> None:
+                     file_path: str, content: str = "", user_id: int = 1) -> None:
     p = _ph()
     if _USE_PG:
         sql = f"""
-            INSERT INTO reports (report_date,candidates,warnings,file_path,content)
-            VALUES ({p},{p},{p},{p},{p})
+            INSERT INTO reports (report_date,candidates,warnings,file_path,content,user_id)
+            VALUES ({p},{p},{p},{p},{p},{p})
             ON CONFLICT (report_date) DO UPDATE SET
                 candidates=EXCLUDED.candidates, warnings=EXCLUDED.warnings,
-                file_path=EXCLUDED.file_path, content=EXCLUDED.content
+                file_path=EXCLUDED.file_path, content=EXCLUDED.content,
+                user_id=EXCLUDED.user_id
         """
     else:
-        sql = "INSERT OR REPLACE INTO reports (report_date,candidates,warnings,file_path,content) VALUES (?,?,?,?,?)"
+        sql = "INSERT OR REPLACE INTO reports (report_date,candidates,warnings,file_path,content,user_id) VALUES (?,?,?,?,?,?)"
     with _conn() as conn:
         conn.cursor().execute(sql, (
             report_date.isoformat(),
@@ -232,16 +286,21 @@ def save_report_meta(report_date: date, candidates: list, warnings: list,
             json.dumps(warnings, ensure_ascii=False),
             file_path,
             content,
+            user_id,
         ))
 
 
-def get_reports(limit: int = 20) -> pd.DataFrame:
-    return _read(f"SELECT report_date, candidates, warnings, file_path FROM reports ORDER BY report_date DESC LIMIT {limit}")
-
-
-def get_report_content(report_date: str) -> dict | None:
+def get_reports(limit: int = 20, user_id: int = 1) -> pd.DataFrame:
     p = _ph()
-    df = _read(f"SELECT * FROM reports WHERE report_date={p}", (report_date,))
+    return _read(
+        f"SELECT report_date, candidates, warnings, file_path FROM reports WHERE user_id={p} ORDER BY report_date DESC LIMIT {limit}",
+        (user_id,)
+    )
+
+
+def get_report_content(report_date: str, user_id: int = 1) -> dict | None:
+    p = _ph()
+    df = _read(f"SELECT * FROM reports WHERE report_date={p} AND user_id={p}", (report_date, user_id))
     if df.empty:
         return None
     row = df.iloc[0]

@@ -66,10 +66,18 @@ export interface ReportDetail {
   candidates: unknown[]; warnings: unknown[]
 }
 
+export interface UserInfo {
+  id: number; email: string
+  has_paper_creds: boolean; has_real_creds: boolean
+  kis_paper_account: string | null; kis_real_account: string | null
+}
+
 export const api = {
-  portfolio:    () => get<PortfolioResponse>('/api/portfolio'),
-  candidates:   () => get<CandidatesResponse>('/api/candidates'),
-  reports:      () => get<ReportMeta[]>('/api/reports'),
-  reportDetail: (d: string) => get<ReportDetail>(`/api/reports/${d}`),
-  setMode:      (mode: 'paper' | 'real') => put<{ mode: string }>('/api/mode', { mode }),
+  portfolio:      () => get<PortfolioResponse>('/api/portfolio'),
+  candidates:     () => get<CandidatesResponse>('/api/candidates'),
+  reports:        () => get<ReportMeta[]>('/api/reports'),
+  reportDetail:   (d: string) => get<ReportDetail>(`/api/reports/${d}`),
+  setMode:        (mode: 'paper' | 'real') => put<{ mode: string }>('/api/mode', { mode }),
+  me:             () => get<UserInfo>('/api/auth/me'),
+  updateSettings: (body: Record<string, string>) => put<{ ok: boolean }>('/api/auth/settings', body),
 }

@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import Dashboard from './pages/Dashboard'
 import Reports from './pages/Reports'
 import Login from './pages/Login'
+import Signup from './pages/Signup'
+import Settings from './pages/Settings'
 import { api } from './api/client'
 
 const nav = 'px-4 py-2 rounded text-sm font-medium transition-colors'
@@ -45,6 +47,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
       <Route path="/*" element={
         <RequireAuth>
           <div className="min-h-screen">
@@ -56,6 +59,9 @@ export default function App() {
                 </NavLink>
                 <NavLink to="/reports" className={({ isActive }) => `${nav} ${isActive ? active : inactive}`}>
                   리포트
+                </NavLink>
+                <NavLink to="/settings" className={({ isActive }) => `${nav} ${isActive ? active : inactive}`}>
+                  설정
                 </NavLink>
               </nav>
               <div className="ml-auto flex items-center gap-3">
@@ -83,6 +89,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/settings" element={<Settings />} />
               </Routes>
             </main>
           </div>

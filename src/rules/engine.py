@@ -18,7 +18,7 @@ def _load_rules() -> dict:
         return yaml.safe_load(f)
 
 
-def run(target_date: date | None = None, cash: float = 0.0) -> dict:
+def run(target_date: date | None = None, cash: float = 0.0, ignore_holdings: bool = False) -> dict:
     """
     규칙 엔진 전체 실행.
 
@@ -104,7 +104,8 @@ def run(target_date: date | None = None, cash: float = 0.0) -> dict:
     else:
         filtered = universe.filter_universe(ticker_info)
         # 이미 보유 중인 종목 제외
-        filtered = filtered[~filtered["ticker"].isin(held_tickers)]
+        if not ignore_holdings:
+            filtered = filtered[~filtered["ticker"].isin(held_tickers)]
 
         log.info(f"유니버스 필터 후 후보 풀: {len(filtered)}종목")
 
