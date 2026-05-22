@@ -30,13 +30,9 @@ def upgrade() -> None:
         )
     """)
 
-    # holdings에 user_id 추가 (기존 데이터는 user_id=1로 backfill)
-    op.execute("ALTER TABLE holdings ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)")
-    op.execute("UPDATE holdings SET user_id = 1 WHERE user_id IS NULL")
-
-    # reports에 user_id 추가
-    op.execute("ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)")
-    op.execute("UPDATE reports SET user_id = 1 WHERE user_id IS NULL")
+    # holdings/reports에 user_id 추가 (FK 없이 — 관리자 계정 생성 후 backfill)
+    op.execute("ALTER TABLE holdings ADD COLUMN IF NOT EXISTS user_id INTEGER")
+    op.execute("ALTER TABLE reports  ADD COLUMN IF NOT EXISTS user_id INTEGER")
 
 
 def downgrade() -> None:
