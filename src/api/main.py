@@ -330,6 +330,21 @@ def place_order(request: Request, body: dict, current_user: dict = Depends(verif
     return result
 
 
+@app.get("/api/market/ranking")
+@limiter.limit("30/minute")
+def market_ranking(request: Request, type: str = "volume", _: dict = Depends(verify_token)):
+    """시장 순위 조회. type: volume | trading_value | change_rate | market_cap"""
+    if type not in ("volume", "trading_value", "change_rate", "market_cap"):
+        raise HTTPException(status_code=400, detail="type은 volume | trading_value | change_rate | market_cap 중 하나입니다.")
+    try:
+        items = kis_client.get_market_ranking(rank_type=type)
+    except KISBusinessError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"랭킹 조회 오류: {e}")
+    return {"type": type, "items": items}
+
+
 @app.get("/api/orders")
 @limiter.limit("60/minute")
 def orders_list(request: Request, current_user: dict = Depends(verify_token)):

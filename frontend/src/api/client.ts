@@ -80,6 +80,14 @@ export interface Order {
   executed_at: string; kis_order_no: string
 }
 
+export type RankType = 'volume' | 'trading_value' | 'change_rate' | 'market_cap'
+export interface RankItem {
+  rank: number; ticker: string; name: string
+  current_price: number; change_pct: number
+  volume: number; trading_value: number; market_cap?: number
+}
+export interface RankingResponse { type: RankType; items: RankItem[] }
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
@@ -105,4 +113,5 @@ export const api = {
   placeOrder:     (body: { ticker: string; name: string; side: string; qty: number }) =>
                     post<{ order_no: string; ticker: string; qty: number; side: string; price: number }>('/api/orders', body),
   orders:         () => get<Order[]>('/api/orders'),
+  marketRanking:  (type: RankType) => get<RankingResponse>(`/api/market/ranking?type=${type}`),
 }
