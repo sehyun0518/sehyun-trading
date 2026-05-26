@@ -432,6 +432,7 @@ def _get_change_rate_rank_raw() -> list[dict]:
             "FID_VOL_CNT": "",
             "FID_INPUT_DATE_1": "",
             "FID_RANK_SORT_CLS_CODE": "0",
+            "FID_INPUT_CNT_1": "0",
             "FID_INPUT_DATE_2": "",
         },
     )
