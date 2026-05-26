@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Dashboard from './pages/Dashboard'
 import Reports from './pages/Reports'
 import Orders from './pages/Orders'
+import Ranking from './pages/Ranking'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Settings from './pages/Settings'
@@ -64,6 +65,9 @@ export default function App() {
                 <NavLink to="/orders" className={({ isActive }) => `${nav} ${isActive ? active : inactive}`}>
                   주문내역
                 </NavLink>
+                <NavLink to="/ranking" className={({ isActive }) => `${nav} ${isActive ? active : inactive}`}>
+                  랭킹
+                </NavLink>
                 <NavLink to="/settings" className={({ isActive }) => `${nav} ${isActive ? active : inactive}`}>
                   설정
                 </NavLink>
@@ -94,6 +98,7 @@ export default function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/orders" element={<Orders />} />
+                <Route path="/ranking" element={<Ranking />} />
                 <Route path="/settings" element={<Settings />} />
               </Routes>
             </main>

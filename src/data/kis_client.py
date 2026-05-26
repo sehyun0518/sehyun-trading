@@ -378,6 +378,149 @@ def get_investor_trading(ticker: str) -> list[dict]:
     return result
 
 
+# 랭킹 캐시 (rank_type → {data, expires_at})
+_ranking_cache: dict[str, Any] = {}
+
+
+def _get_volume_rank_raw(blng_cls: str) -> list[dict]:
+    """거래량(blng_cls=0) 또는 거래대금(blng_cls=3) 순위 조회."""
+    data = _get_market(
+        "/uapi/domestic-stock/v1/quotations/volume-rank",
+        "FHPST01710000",
+        {
+            "FID_COND_MRKT_DIV_CODE": "J",
+            "FID_COND_SCR_DIV_CODE": "20171",
+            "FID_INPUT_ISCD": "0000",
+            "FID_DIV_CLS_CODE": "0",
+            "FID_BLNG_CLS_CODE": blng_cls,
+            "FID_TRGT_CLS_CODE": "111111111",
+            "FID_TRGT_EXLS_CLS_CODE": "0000000000",
+            "FID_INPUT_PRICE_1": "",
+            "FID_INPUT_PRICE_2": "",
+            "FID_VOL_CNT": "",
+            "FID_INPUT_DATE_1": "",
+        },
+    )
+    result = []
+    for i, item in enumerate(data.get("output", []), 1):
+        result.append({
+            "rank": i,
+            "ticker": item.get("mksc_shrn_iscd", ""),
+            "name": item.get("hts_kor_isnm", ""),
+            "current_price": int(item.get("stck_prpr", 0) or 0),
+            "change_pct": float(item.get("prdy_ctrt", 0) or 0),
+            "volume": int(item.get("acml_vol", 0) or 0),
+            "trading_value": int(item.get("acml_tr_pbmn", 0) or 0),
+        })
+    return result
+
+
+def _get_change_rate_rank_raw() -> list[dict]:
+    """등락률 상승 순위 조회."""
+    data = _get_market(
+        "/uapi/domestic-stock/v1/ranking/fluctuation",
+        "FHPST01700000",
+        {
+            "FID_COND_MRKT_DIV_CODE": "J",
+            "FID_COND_SCR_DIV_CODE": "20170",
+            "FID_INPUT_ISCD": "0000",
+            "FID_DIV_CLS_CODE": "0",
+            "FID_TRGT_CLS_CODE": "0",
+            "FID_TRGT_EXLS_CLS_CODE": "0",
+            "FID_INPUT_PRICE_1": "",
+            "FID_INPUT_PRICE_2": "",
+            "FID_VOL_CNT": "",
+            "FID_INPUT_DATE_1": "",
+            "FID_RANK_SORT_CLS_CODE": "0",
+            "FID_INPUT_DATE_2": "",
+        },
+    )
+    result = []
+    for i, item in enumerate(data.get("output", []), 1):
+        result.append({
+            "rank": i,
+            "ticker": item.get("stck_shrn_iscd", ""),
+            "name": item.get("hts_kor_isnm", ""),
+            "current_price": int(item.get("stck_prpr", 0) or 0),
+            "change_pct": float(item.get("prdy_ctrt", 0) or 0),
+            "volume": int(item.get("acml_vol", 0) or 0),
+            "trading_value": int(item.get("acml_tr_pbmn", 0) or 0),
+        })
+    return result
+
+
+def _get_market_cap_rank_raw() -> list[dict]:
+    """pykrx 기반 시가총액 순위 (전일 기준)."""
+    import pandas as pd
+    from pykrx import stock as pykrx_stock
+
+    today = datetime.now().strftime("%Y%m%d")
+    frames = []
+    for market in ("KOSPI", "KOSDAQ"):
+        try:
+            df = pykrx_stock.get_market_cap_by_ticker(today, market=market)
+            if df is not None and not df.empty:
+                df = df.reset_index()
+                frames.append(df)
+        except Exception:
+            pass
+
+    if not frames:
+        return []
+
+    df = pd.concat(frames, ignore_index=True)
+    cap_col    = next((c for c in df.columns if "시가총액" in c), None)
+    ticker_col = next((c for c in df.columns if "티커" in c), None)
+    name_col   = next((c for c in df.columns if "종목명" in c), None)
+    vol_col    = next((c for c in df.columns if "거래량" in c), None)
+    val_col    = next((c for c in df.columns if "거래대금" in c), None)
+    price_col  = next((c for c in df.columns if "종가" in c), None)
+
+    if not cap_col or not ticker_col:
+        return []
+
+    df = df.sort_values(cap_col, ascending=False).reset_index(drop=True)
+    result = []
+    for i, row in df.iterrows():
+        result.append({
+            "rank": i + 1,
+            "ticker": str(row.get(ticker_col, "")),
+            "name": str(row.get(name_col, "")) if name_col else "",
+            "current_price": int(row.get(price_col, 0) or 0) if price_col else 0,
+            "change_pct": 0.0,
+            "volume": int(row.get(vol_col, 0) or 0) if vol_col else 0,
+            "trading_value": int(row.get(val_col, 0) or 0) if val_col else 0,
+            "market_cap": int(row.get(cap_col, 0) or 0),
+        })
+    return result
+
+
+def get_market_ranking(rank_type: str = "volume") -> list[dict]:
+    """시장 순위 조회 (5분 캐시).
+
+    rank_type: 'volume' | 'trading_value' | 'change_rate' | 'market_cap'
+    """
+    if rank_type not in ("volume", "trading_value", "change_rate", "market_cap"):
+        raise ValueError(f"지원하지 않는 rank_type: {rank_type!r}")
+
+    cached = _ranking_cache.get(rank_type)
+    if cached and datetime.now() < cached["expires_at"]:
+        return cached["data"]
+
+    if rank_type == "volume":
+        data = _get_volume_rank_raw("0")
+    elif rank_type == "trading_value":
+        data = _get_volume_rank_raw("3")
+    elif rank_type == "change_rate":
+        data = _get_change_rate_rank_raw()
+    else:
+        data = _get_market_cap_rank_raw()
+
+    _ranking_cache[rank_type] = {"data": data, "expires_at": datetime.now() + timedelta(minutes=5)}
+    return data
+
+
+
 def place_order(ticker: str, qty: int, side: str, user_creds: dict | None = None) -> dict:
     """시장가 주문. paper 모드 = 모의투자, real 모드 = 실전투자.
 
