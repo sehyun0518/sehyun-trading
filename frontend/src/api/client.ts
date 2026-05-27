@@ -88,6 +88,20 @@ export interface RankItem {
 }
 export interface RankingResponse { type: RankType; items: RankItem[] }
 
+export interface CandidateSnapshot {
+  id: number
+  run_date: string
+  ticker: string
+  name: string
+  source: string
+  indicators: Record<string, number | string | null>
+  entry_checks: Record<string, boolean>
+  entry_price: number | null
+  stop_loss: number | null
+  take_profit: number | null
+  created_at: string
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
@@ -114,4 +128,5 @@ export const api = {
                     post<{ order_no: string; ticker: string; qty: number; side: string; price: number }>('/api/orders', body),
   orders:         () => get<Order[]>('/api/orders'),
   marketRanking:  (type: RankType) => get<RankingResponse>(`/api/market/ranking?type=${type}`),
+  strategySnapshots: () => get<CandidateSnapshot[]>('/api/strategy/snapshots'),
 }

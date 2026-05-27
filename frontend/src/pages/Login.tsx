@@ -24,7 +24,7 @@ export default function Login() {
       }
       const { access_token } = await res.json()
       localStorage.setItem('auth_token', access_token)
-      window.location.href = '/'
+      window.location.href = '/dashboard'
     } catch {
       setError('서버에 연결할 수 없습니다.')
     } finally {
@@ -35,7 +35,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-lg p-8 w-full max-w-sm space-y-4">
-        <h1 className="text-lg font-bold text-blue-400">KR Swing Advisor</h1>
+        <a href="/" className="block text-lg font-bold text-blue-400">KR Swing Advisor</a>
         <div>
           <label className="block text-sm text-gray-400 mb-1">이메일</label>
           <input

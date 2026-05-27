@@ -20,7 +20,7 @@
 
 ---
 
-## 1. 현재 상태 (MVP 완료)
+## 1. 현재 상태 (Phase 10 완료, Phase 11 진행 중)
 
 ### ✅ 완료된 영역
 | 영역 | 상태 |
@@ -35,15 +35,20 @@
 | PostgreSQL 마이그레이션 | ✅ 완료 |
 | 도메인 + HTTPS (api.sehyun0518.dev) | ✅ 완료 |
 | 모의/실전 모드 런타임 전환 UI | ✅ 완료 |
+| JWT 인증 + 멀티유저 기반 | ✅ 완료 |
+| 주문 UI + 주문 히스토리 | ✅ 완료 |
+| 운영 백업/배포/로그 보존 | ✅ 완료 |
 
-### ⚠️ 알려진 결함 (확장 전 해결 필요)
-- API 인증 부재 (누구나 `/api/portfolio`, `/api/mode` 호출 가능)
-- CORS 전체 허용 (`allow_origins=["*"]`)
-- KIS 자격증명 `.env` 평문 저장
-- 단일 유저 가정 (DB에 `user_id` 없음)
-- 백업 없음
-- 모니터링 없음
-- 테스트 디렉토리 비어있음
+### 2026-05-27 phase 검토 결과
+- **접근성 문제:** 현재 주요 화면이 로그인 사용자 전용으로 구성되어, 일반 사용자는 서비스 목적·동작 방식·주의사항을 가입 전 파악하기 어렵다.
+- **전략 성과 문제:** 현재 사용 중인 `MA20`, `RSI`, 외국인 5일 순매수, 5일 거래량비 조합으로 약 2주 운영했으나 유의미한 이익을 확인하지 못했다.
+- **우선순위 조정:** 신규 기능 확장보다 공개 진입면, 온보딩, 전략 검증/개선 루프를 먼저 진행한다.
+
+### ⚠️ 알려진 결함 및 보완 필요
+- 비로그인 공개 화면 부족 → Phase 11에서 랜딩/온보딩 우선 진행
+- 현재 지표 조합의 실전 성과 검증 부족 → Phase 12에서 백테스트·실거래 괴리 분석 후 규칙 개정
+- 테스트 디렉토리 비어있음 → 전략 변경 전 최소 단위 테스트와 백테스트 회귀 기준 필요
+- UptimeRobot 헬스체크 수동 등록 미완료
 
 ---
 
@@ -267,9 +272,14 @@ orders      (id PK, user_id, ticker, side, qty, price, executed_at, kis_order_no
 - [x] 11-5. 유입 사용자의 회원가입/실사용 전환을 위한 히어로 카피·CTA 개선
 - [x] 11-6. 가입 후 흐름·대상 사용자·핵심 기능·하단 CTA를 포함한 메인 콘텐츠 확장
 - [x] 11-7. 카드 나열형 메인 섹션을 타임라인·행 리스트·기능 표 중심 정보 구조로 개선
+<<<<<<< HEAD
 - [x] 11-8. 모바일 주요 레이아웃 반응형 보강
 - [ ] 11-9. Lighthouse 모바일 90+ 검증
 - [ ] 11-10. Cloudflare Proxied 활성화 (DDoS 보호)
+=======
+- [ ] 11-8. 모바일 반응형 QA 및 Lighthouse 모바일 90+
+- [ ] 11-9. Cloudflare Proxied 활성화 (DDoS 보호)
+>>>>>>> origin
 
 **수정 파일:** `frontend/src/App.tsx`, `frontend/src/pages/PublicHome.tsx`, `frontend/src/pages/Login.tsx`, `frontend/src/pages/Settings.tsx`, `frontend/src/pages/Legal.tsx`
 
@@ -278,13 +288,21 @@ orders      (id PK, user_id, ticker, side, qty, price, executed_at, kis_order_no
 **Why:** 현재 지표 조합으로 2주 운영 후 수익성이 확인되지 않았다. 규칙 변경은 감이 아니라 백테스트, 실거래 로그, 실패 케이스 분류를 근거로 해야 한다.
 
 - [x] 12-1. 최근 2주 주문/보유 로그를 기준으로 후보 선정 당시 지표 스냅샷 저장
+<<<<<<< HEAD
 - [x] 12-2. 현행 규칙(`MA20`, `RSI 30~55`, 외국인 5일 순매수, 거래량비 1.2x)의 최근 6~12개월 백테스트 재실행
+=======
+- [ ] 12-2. 현행 규칙(`MA20`, `RSI 30~55`, 외국인 5일 순매수, 거래량비 1.2x)의 최근 6~12개월 백테스트 재실행
+>>>>>>> origin
 - [ ] 12-3. 실패 후보 분류: 추세 역행, 거래량 착시, 수급 지속 실패, 시장/섹터 약세, 손절 지연
 - [ ] 12-4. 대체/보강 지표 후보 실험: MA20 기울기, MA60 정렬, 상대강도, ATR 변동성, 기관 수급, 시장 지수 필터
 - [ ] 12-5. 변경 전후 승률, 평균 손익비, MDD, 보유기간, 거래빈도 비교 리포트 생성
 - [ ] 12-6. 검증된 경우에만 `rules.yaml` 개정. 변경일, 근거, 백테스트 결과를 리포트에 남김
 
+<<<<<<< HEAD
 **수정 파일:** `alembic/versions/0004_candidate_snapshots.py`, `src/api/main.py`, `src/data/storage.py`, `src/backtest/runner.py`, `scripts/setup_db.py`, `scripts/run_backtest.py`, `frontend/src/api/client.ts`, `docs/phase12-strategy-backtest.md`
+=======
+**수정 파일:** `alembic/versions/0004_candidate_snapshots.py`, `src/api/main.py`, `src/data/storage.py`, `scripts/setup_db.py`, `frontend/src/api/client.ts`
+>>>>>>> origin
 
 ### ⚪ Phase 13: 실투자 진입 (지속)
 
@@ -350,9 +368,15 @@ t4g.nano 다운사이즈 시 약 4,500원으로 절감 가능.
 - UI 매수 → KIS Developer Portal에서 체결 확인
 - 손절가 도달 시뮬레이션 → Slack 알림
 
-**Phase 11~12:**
+**Phase 11 (공개 접근성):**
 - Lighthouse 모바일 90+
 - 신규 가입 → 사용 → 백테스트 전체 흐름 통과
+- 비로그인 사용자가 `/`에서 서비스 목적, 투자 보조 범위, 가입/로그인 경로를 확인 가능
+
+**Phase 12 (전략 검증):**
+- 현행 규칙과 개선 후보 규칙의 백테스트 결과를 동일 기간·동일 비용 가정으로 비교
+- 실거래/모의투자 2주 로그에서 손실 원인을 분류하고, 재발 방지 지표를 1개 이상 제안
+- `rules.yaml` 변경 시 변경 전후 리포트와 회귀 백테스트 결과를 함께 저장
 
 ---
 

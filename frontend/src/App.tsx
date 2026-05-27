@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard'
 import Reports from './pages/Reports'
 import Orders from './pages/Orders'
 import Ranking from './pages/Ranking'
+import PublicHome from './pages/PublicHome'
+import Legal from './pages/Legal'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Settings from './pages/Settings'
@@ -48,6 +50,8 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/" element={<PublicHome />} />
+      <Route path="/legal/:doc" element={<Legal />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/*" element={
@@ -57,6 +61,9 @@ export default function App() {
               <span className="font-bold text-blue-400 text-lg">KR Swing Advisor</span>
               <nav className="flex gap-2">
                 <NavLink to="/" end className={({ isActive }) => `${nav} ${isActive ? active : inactive}`}>
+                  홈
+                </NavLink>
+                <NavLink to="/dashboard" className={({ isActive }) => `${nav} ${isActive ? active : inactive}`}>
                   대시보드
                 </NavLink>
                 <NavLink to="/reports" className={({ isActive }) => `${nav} ${isActive ? active : inactive}`}>
@@ -95,11 +102,12 @@ export default function App() {
             </header>
             <main className="p-6">
               <Routes>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/ranking" element={<Ranking />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </main>
           </div>
