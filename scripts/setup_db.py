@@ -45,6 +45,49 @@ CREATE TABLE IF NOT EXISTS reports (
     report_date DATE PRIMARY KEY, candidates TEXT, warnings TEXT,
     file_path TEXT, content TEXT
 );
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    kis_paper_key_enc TEXT,
+    kis_paper_secret_enc TEXT,
+    kis_paper_account TEXT,
+    kis_real_key_enc TEXT,
+    kis_real_secret_enc TEXT,
+    kis_real_account TEXT,
+    notify_slack_webhook TEXT,
+    notify_discord_webhook TEXT
+);
+CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    ticker TEXT NOT NULL,
+    name TEXT,
+    side TEXT NOT NULL,
+    qty INTEGER NOT NULL,
+    price REAL,
+    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    kis_order_no TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
+CREATE TABLE IF NOT EXISTS candidate_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    run_date DATE NOT NULL,
+    ticker TEXT NOT NULL,
+    name TEXT,
+    source TEXT NOT NULL DEFAULT 'candidates',
+    indicators TEXT NOT NULL,
+    entry_checks TEXT NOT NULL,
+    entry_price REAL,
+    stop_loss REAL,
+    take_profit REAL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, run_date, ticker, source)
+);
+CREATE INDEX IF NOT EXISTS idx_candidate_snapshots_user_date ON candidate_snapshots(user_id, run_date DESC);
+CREATE INDEX IF NOT EXISTS idx_candidate_snapshots_ticker ON candidate_snapshots(ticker);
 """
 
 PG_DDL_STATEMENTS = [
@@ -72,6 +115,46 @@ PG_DDL_STATEMENTS = [
     """CREATE TABLE IF NOT EXISTS reports (
         report_date DATE PRIMARY KEY, candidates TEXT, warnings TEXT,
         file_path TEXT, content TEXT)""",
+    """CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        kis_paper_key_enc TEXT,
+        kis_paper_secret_enc TEXT,
+        kis_paper_account VARCHAR(20),
+        kis_real_key_enc TEXT,
+        kis_real_secret_enc TEXT,
+        kis_real_account VARCHAR(20),
+        notify_slack_webhook TEXT,
+        notify_discord_webhook TEXT)""",
+    """CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        ticker TEXT NOT NULL,
+        name TEXT,
+        side TEXT NOT NULL,
+        qty INTEGER NOT NULL,
+        price REAL,
+        executed_at TIMESTAMP DEFAULT NOW(),
+        kis_order_no TEXT)""",
+    "CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id)",
+    """CREATE TABLE IF NOT EXISTS candidate_snapshots (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        run_date DATE NOT NULL,
+        ticker TEXT NOT NULL,
+        name TEXT,
+        source TEXT NOT NULL DEFAULT 'candidates',
+        indicators TEXT NOT NULL,
+        entry_checks TEXT NOT NULL,
+        entry_price REAL,
+        stop_loss REAL,
+        take_profit REAL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE (user_id, run_date, ticker, source))""",
+    "CREATE INDEX IF NOT EXISTS idx_candidate_snapshots_user_date ON candidate_snapshots(user_id, run_date DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_candidate_snapshots_ticker ON candidate_snapshots(ticker)",
 ]
 
 

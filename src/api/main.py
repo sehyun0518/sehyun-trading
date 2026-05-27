@@ -278,11 +278,38 @@ def candidates(request: Request, current_user: dict = Depends(verify_token)):
             "take_profit":    eg.get("take_profit_price"),
         })
 
+    storage.save_candidate_snapshots(current_user["id"], result["run_date"], cands)
+
     return {
         "run_date":   result["run_date"],
         "candidates": cands,
         "warnings":   result.get("warnings", []),
     }
+
+
+@app.get("/api/strategy/snapshots")
+@limiter.limit("30/minute")
+def strategy_snapshots(request: Request, current_user: dict = Depends(verify_token)):
+    """후보 선정 당시 지표 스냅샷. 전략 검증/실패 분류용."""
+    df = storage.get_candidate_snapshots(user_id=current_user["id"], limit=100)
+    if df.empty:
+        return []
+    rows = []
+    for _, row in df.iterrows():
+        rows.append({
+            "id": int(row["id"]),
+            "run_date": str(row["run_date"]),
+            "ticker": row["ticker"],
+            "name": row.get("name", ""),
+            "source": row.get("source", "candidates"),
+            "indicators": json.loads(row.get("indicators") or "{}"),
+            "entry_checks": json.loads(row.get("entry_checks") or "{}"),
+            "entry_price": row.get("entry_price"),
+            "stop_loss": row.get("stop_loss"),
+            "take_profit": row.get("take_profit"),
+            "created_at": str(row.get("created_at", "")),
+        })
+    return rows
 
 
 @app.post("/api/orders")
