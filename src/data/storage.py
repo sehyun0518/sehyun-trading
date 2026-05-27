@@ -335,6 +335,125 @@ def get_orders(user_id: int, limit: int = 50) -> pd.DataFrame:
     )
 
 
+# ── 전략 검증 스냅샷 ──────────────────────────────────────────────────────────
+
+def _ensure_candidate_snapshots_table() -> None:
+    """로컬 SQLite 개발 DB 또는 마이그레이션 전 DB에서 후보 스냅샷 테이블 보장."""
+    if _USE_PG:
+        ddl = """
+            CREATE TABLE IF NOT EXISTS candidate_snapshots (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                run_date DATE NOT NULL,
+                ticker TEXT NOT NULL,
+                name TEXT,
+                source TEXT NOT NULL DEFAULT 'candidates',
+                indicators TEXT NOT NULL,
+                entry_checks TEXT NOT NULL,
+                entry_price REAL,
+                stop_loss REAL,
+                take_profit REAL,
+                created_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE (user_id, run_date, ticker, source)
+            )
+        """
+    else:
+        ddl = """
+            CREATE TABLE IF NOT EXISTS candidate_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                run_date DATE NOT NULL,
+                ticker TEXT NOT NULL,
+                name TEXT,
+                source TEXT NOT NULL DEFAULT 'candidates',
+                indicators TEXT NOT NULL,
+                entry_checks TEXT NOT NULL,
+                entry_price REAL,
+                stop_loss REAL,
+                take_profit REAL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (user_id, run_date, ticker, source)
+            )
+        """
+    with _conn() as conn:
+        cur = conn.cursor()
+        cur.execute(ddl)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_candidate_snapshots_user_date ON candidate_snapshots(user_id, run_date DESC)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_candidate_snapshots_ticker ON candidate_snapshots(ticker)")
+
+
+def save_candidate_snapshots(user_id: int, run_date: str, candidates: list[dict],
+                             source: str = "candidates") -> int:
+    """후보 선정 당시 지표/체크를 저장해 이후 성과 부진 원인 분석에 사용."""
+    if not candidates:
+        return 0
+    _ensure_candidate_snapshots_table()
+    p = _ph()
+    records = []
+    for c in candidates:
+        indicators = {
+            "close": c.get("close"),
+            "ma20": c.get("ma20"),
+            "ma20_diff_pct": c.get("ma20_diff_pct"),
+            "rsi": c.get("rsi"),
+            "volume_ratio": c.get("volume_ratio"),
+            "foreign_net_5d": c.get("foreign_net_5d"),
+            "market": c.get("market"),
+            "market_cap_b": c.get("market_cap_b"),
+        }
+        records.append((
+            user_id,
+            run_date,
+            c.get("ticker"),
+            c.get("name"),
+            source,
+            json.dumps(indicators, ensure_ascii=False),
+            json.dumps(c.get("checks", {}), ensure_ascii=False),
+            c.get("entry_price"),
+            c.get("stop_loss"),
+            c.get("take_profit"),
+        ))
+
+    if _USE_PG:
+        sql = f"""
+            INSERT INTO candidate_snapshots
+                (user_id, run_date, ticker, name, source, indicators, entry_checks,
+                 entry_price, stop_loss, take_profit)
+            VALUES ({p},{p},{p},{p},{p},{p},{p},{p},{p},{p})
+            ON CONFLICT (user_id, run_date, ticker, source) DO UPDATE SET
+                name=EXCLUDED.name,
+                indicators=EXCLUDED.indicators,
+                entry_checks=EXCLUDED.entry_checks,
+                entry_price=EXCLUDED.entry_price,
+                stop_loss=EXCLUDED.stop_loss,
+                take_profit=EXCLUDED.take_profit
+        """
+    else:
+        sql = """
+            INSERT OR REPLACE INTO candidate_snapshots
+                (user_id, run_date, ticker, name, source, indicators, entry_checks,
+                 entry_price, stop_loss, take_profit)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+        """
+    with _conn() as conn:
+        conn.cursor().executemany(sql, records)
+    return len(records)
+
+
+def get_candidate_snapshots(user_id: int, limit: int = 100) -> pd.DataFrame:
+    _ensure_candidate_snapshots_table()
+    p = _ph()
+    return _read(
+        f"""
+            SELECT * FROM candidate_snapshots
+            WHERE user_id={p}
+            ORDER BY run_date DESC, created_at DESC
+            LIMIT {p}
+        """,
+        (user_id, limit),
+    )
+
+
 # ── 엔진 캐시 ─────────────────────────────────────────────────────────────────
 
 _CACHE_PATH = Path(__file__).parent.parent.parent / "data" / "engine_cache.json"
