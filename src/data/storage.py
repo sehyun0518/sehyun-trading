@@ -476,6 +476,56 @@ def get_candidate_snapshots(user_id: int, limit: int = 100) -> pd.DataFrame:
     )
 
 
+# ── 시장 현황 ────────────────────────────────────────────────────────────────
+
+def get_market_performance(weeks: int = 4) -> dict:
+    """최근 N주 KOSPI/KOSDAQ 상장 종목 평균 성과. Claude 리포트 컨텍스트용."""
+    from datetime import timedelta
+    end = date.today()
+    start = (end - timedelta(weeks=weeks)).isoformat()
+    end_str = end.isoformat()
+
+    tickers_df = _read("SELECT ticker, market FROM ticker_info WHERE market IS NOT NULL")
+    if tickers_df.empty:
+        return {}
+
+    result = {}
+    for market in ("KOSPI", "KOSDAQ"):
+        market_tickers = tickers_df[tickers_df["market"] == market]["ticker"].tolist()
+        if not market_tickers:
+            continue
+        p = _ph()
+        placeholders = ",".join([p] * len(market_tickers))
+        sql = f"""
+            SELECT ticker, date, close
+            FROM daily_ohlcv
+            WHERE ticker IN ({placeholders}) AND date BETWEEN {p} AND {p}
+            ORDER BY ticker, date
+        """
+        df = _read(sql, (*market_tickers, start, end_str))
+        if df.empty:
+            continue
+
+        returns = []
+        for _, g in df.groupby("ticker"):
+            if len(g) < 5:
+                continue
+            first, last = g.iloc[0]["close"], g.iloc[-1]["close"]
+            if first and first > 0:
+                returns.append((last - first) / first * 100)
+
+        if not returns:
+            continue
+        result[market] = {
+            "weeks": weeks,
+            "avg_return_pct": round(sum(returns) / len(returns), 2),
+            "up_count": sum(1 for r in returns if r > 0),
+            "down_count": sum(1 for r in returns if r <= 0),
+            "ticker_count": len(returns),
+        }
+    return result
+
+
 # ── 엔진 캐시 ─────────────────────────────────────────────────────────────────
 
 _CACHE_PATH = Path(__file__).parent.parent.parent / "data" / "engine_cache.json"

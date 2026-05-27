@@ -272,14 +272,9 @@ orders      (id PK, user_id, ticker, side, qty, price, executed_at, kis_order_no
 - [x] 11-5. 유입 사용자의 회원가입/실사용 전환을 위한 히어로 카피·CTA 개선
 - [x] 11-6. 가입 후 흐름·대상 사용자·핵심 기능·하단 CTA를 포함한 메인 콘텐츠 확장
 - [x] 11-7. 카드 나열형 메인 섹션을 타임라인·행 리스트·기능 표 중심 정보 구조로 개선
-<<<<<<< HEAD
 - [x] 11-8. 모바일 주요 레이아웃 반응형 보강
 - [ ] 11-9. Lighthouse 모바일 90+ 검증
 - [ ] 11-10. Cloudflare Proxied 활성화 (DDoS 보호)
-=======
-- [ ] 11-8. 모바일 반응형 QA 및 Lighthouse 모바일 90+
-- [ ] 11-9. Cloudflare Proxied 활성화 (DDoS 보호)
->>>>>>> origin
 
 **수정 파일:** `frontend/src/App.tsx`, `frontend/src/pages/PublicHome.tsx`, `frontend/src/pages/Login.tsx`, `frontend/src/pages/Settings.tsx`, `frontend/src/pages/Legal.tsx`
 
@@ -288,23 +283,27 @@ orders      (id PK, user_id, ticker, side, qty, price, executed_at, kis_order_no
 **Why:** 현재 지표 조합으로 2주 운영 후 수익성이 확인되지 않았다. 규칙 변경은 감이 아니라 백테스트, 실거래 로그, 실패 케이스 분류를 근거로 해야 한다.
 
 - [x] 12-1. 최근 2주 주문/보유 로그를 기준으로 후보 선정 당시 지표 스냅샷 저장
-<<<<<<< HEAD
 - [x] 12-2. 현행 규칙(`MA20`, `RSI 30~55`, 외국인 5일 순매수, 거래량비 1.2x)의 최근 6~12개월 백테스트 재실행
-=======
-- [ ] 12-2. 현행 규칙(`MA20`, `RSI 30~55`, 외국인 5일 순매수, 거래량비 1.2x)의 최근 6~12개월 백테스트 재실행
->>>>>>> origin
 - [x] 12-3. 실패 후보 분류: 추세 역행, 거래량 착시, 수급 지속 실패, 시장/섹터 약세, 손절 지연
 - [x] 12-4. 대체/보강 지표 후보 실험: MA20 기울기, MA60 정렬, 상대강도, ATR 변동성, 기관 수급, 시장 지수 필터
 - [x] 12-5. 변경 전후 승률, 평균 손익비, MDD, 보유기간, 거래빈도 비교 리포트 생성
 - [ ] 12-6. 검증된 경우에만 `rules.yaml` 개정. 변경일, 근거, 백테스트 결과를 리포트에 남김
 
-<<<<<<< HEAD
 **수정 파일:** `alembic/versions/0004_candidate_snapshots.py`, `src/api/main.py`, `src/data/storage.py`, `src/backtest/runner.py`, `scripts/setup_db.py`, `scripts/run_backtest.py`, `frontend/src/api/client.ts`, `docs/phase12-strategy-backtest.md`
-=======
-**수정 파일:** `alembic/versions/0004_candidate_snapshots.py`, `src/api/main.py`, `src/data/storage.py`, `scripts/setup_db.py`, `frontend/src/api/client.ts`
->>>>>>> origin
 
-### ⚪ Phase 13: 실투자 진입 (지속)
+### ⚪ Phase 13: 시장 컨텍스트 통합
+
+**Why:** Phase 12 실험에서 개별 종목 지표(RSI, MA20 기울기) 조정은 승패 구분력이 없음을 확인했다. 손실의 핵심 원인은 시장 전체 방향성이므로, 시장/업종 지수를 진입 조건에 통합하고 Claude 리포트에 외부 맥락을 추가한다.
+
+- [ ] 13-1. KOSPI/KOSDAQ 시장 지수 MA20 필터 백테스트 (시나리오 E) — EC2에서 실행, 유효 시 rules.yaml 반영
+- [ ] 13-2. 업종 지수 필터 — 종목 상장 업종 지수가 MA20 아래면 진입 스킵, 백테스트 비교
+- [ ] 13-3. Claude 주간 리포트에 시장/업종 컨텍스트 추가 — 후보 종목 업종의 최근 4주 섹터 성과 포함
+- [ ] 13-4. VKOSPI(변동성 지수) 필터 실험 — 고변동성 구간 신규 진입 제한
+- [ ] 13-5. 검증된 조건을 `rules.yaml`에 `market_context` 항목으로 추가
+
+**수정 파일:** `src/backtest/strategy.py`, `src/data/pykrx_collector.py`, `src/analysis/prompts.py`, `config/rules.yaml`, `scripts/experiment_indicators.py`, `docs/phase13-market-context.md`
+
+### ⚪ Phase 14: 실투자 진입 (지속)
 
 - [ ] 100만원 소액 시작 → 1개월 정상 운영 확인
 - [ ] 200만원 증액 → 추가 1~2개월
@@ -398,4 +397,4 @@ t4g.nano 다운사이즈 시 약 4,500원으로 절감 가능.
 
 상세 확장 로드맵은 `~/.claude/plans/inherited-cuddling-parasol.md`에 별도 보관.
 
-**즉시 진행:** Phase 11-9 Lighthouse 모바일 검증과 Phase 12-3 서버 주문/스냅샷 기반 실패 후보 분류를 병행한다. 로컬 백테스트에서는 `market_cap` 데이터 품질 문제가 확인되었으므로, 시가총액 데이터 정상화도 함께 진행한다.
+**즉시 진행:** Phase 13-1 KOSPI/KOSDAQ 시장 지수 필터 백테스트(EC2)와 Phase 13-2 업종 지수 필터 실험을 병행한다. Phase 12-3~12-5 실험에서 개별 지표 조정의 한계가 확인됐으므로, 시장 방향성 조건을 진입 규칙에 통합하는 데 집중한다.

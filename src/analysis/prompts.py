@@ -29,8 +29,23 @@ def build_system_prompt() -> str:
 ```"""
 
 
-def build_candidates_prompt(candidates: list[dict], portfolio_status: dict) -> str:
-    return f"""## 신규 진입 후보 종목 검토 요청
+def build_candidates_prompt(
+    candidates: list[dict],
+    portfolio_status: dict,
+    market_context: dict | None = None,
+) -> str:
+    market_section = ""
+    if market_context:
+        lines = ["## 최근 시장 현황\n"]
+        for mkt, stats in market_context.items():
+            direction = "상승" if stats["avg_return_pct"] > 0 else "하락"
+            lines.append(
+                f"- {mkt} 최근 {stats['weeks']}주: 평균 {stats['avg_return_pct']:+.1f}% {direction} "
+                f"(상승 {stats['up_count']}종목 / 하락 {stats['down_count']}종목 / 전체 {stats['ticker_count']}종목)"
+            )
+        market_section = "\n".join(lines) + "\n\n"
+
+    return f"""{market_section}## 신규 진입 후보 종목 검토 요청
 
 현재 포트폴리오:
 - 보유 종목 수: {portfolio_status['position_count']} / {portfolio_status['max_positions']}
@@ -46,6 +61,7 @@ def build_candidates_prompt(candidates: list[dict], portfolio_status: dict) -> s
 1. 규칙 충족 항목 요약 (수치 포함)
 2. 투자자가 직접 확인해야 할 포인트 2~3가지 (차트, 뉴스, 업황 등)
 3. 동일 조건의 후보가 여럿일 때 우선순위 제안 (외국인 수급, 재무 건전성 기준)
+4. 위 시장 현황을 감안할 때 전반적 진입 환경에 대한 한 줄 평가
 
 단정적 매수 추천은 하지 마십시오."""
 
