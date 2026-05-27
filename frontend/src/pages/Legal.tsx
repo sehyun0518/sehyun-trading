@@ -44,7 +44,7 @@ export default function Legal() {
       <header className="border-b border-gray-800 px-5 py-4">
         <div className="mx-auto flex max-w-3xl items-center gap-4">
           <Link to="/" className="text-lg font-bold text-blue-400">KR Swing Advisor</Link>
-          <Link to="/signup" className="ml-auto rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          <Link to="/signup" className="ml-auto rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
             시작하기
           </Link>
         </div>
@@ -56,7 +56,7 @@ export default function Legal() {
             <Link
               key={key}
               to={`/legal/${key}`}
-              className={`rounded px-3 py-2 text-sm ${
+              className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
                 current === key
                   ? 'bg-blue-600 text-white'
                   : 'border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white'
@@ -68,15 +68,16 @@ export default function Legal() {
         </div>
 
         <article className="rounded-lg border border-gray-800 bg-gray-900 p-6">
-          <h1 className="text-2xl font-semibold text-white">{item.title}</h1>
-          <div className="mt-6 space-y-4">
+          <h1 className="text-xl font-semibold text-white">{item.title}</h1>
+          <div className="mt-6 divide-y divide-gray-800">
             {item.body.map((paragraph, index) => (
-              <p key={index} className="text-sm leading-7 text-gray-300">
-                {paragraph}
-              </p>
+              <div key={index} className="grid gap-3 py-4 first:pt-0 last:pb-0 md:grid-cols-[80px_1fr]">
+                <div className="text-xs font-semibold text-blue-300">조항 {index + 1}</div>
+                <p className="text-sm leading-7 text-gray-300">{paragraph}</p>
+              </div>
             ))}
           </div>
-          <p className="mt-8 text-xs text-gray-500">최종 업데이트: 2026-05-27</p>
+          <p className="mt-6 border-t border-gray-800 pt-4 text-xs text-gray-500">최종 업데이트: 2026-05-27</p>
         </article>
       </main>
     </div>

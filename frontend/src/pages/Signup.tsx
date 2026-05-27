@@ -37,41 +37,52 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-lg p-8 w-full max-w-sm space-y-4">
-        <h1 className="text-lg font-bold text-blue-400">회원가입</h1>
-        <div>
-          <label className="block text-sm text-gray-400 mb-1">이메일</label>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-            autoFocus
-          />
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center">
+          <a href="/" className="text-lg font-bold text-blue-400">KR Swing Advisor</a>
+          <p className="mt-1 text-sm text-gray-500">모의투자로 먼저 시작하세요</p>
         </div>
-        <div>
-          <label className="block text-sm text-gray-400 mb-1">패스워드 (8자 이상)</label>
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-          />
-        </div>
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading || !email || !password}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded px-4 py-2 text-sm font-medium transition-colors"
-        >
-          {loading ? '등록 중...' : '회원가입'}
-        </button>
+        <form onSubmit={handleSubmit} className="rounded-lg border border-gray-800 bg-gray-900 p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">이메일</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-blue-500 focus:outline-none transition-colors"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">패스워드 <span className="normal-case font-normal">(8자 이상)</span></label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-blue-500 focus:outline-none transition-colors"
+            />
+          </div>
+          {error && (
+            <div className="rounded border border-red-900 bg-red-950 px-3 py-2 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={loading || !email || !password}
+            className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {loading ? '등록 중...' : '계정 만들기'}
+          </button>
+        </form>
         <p className="text-center text-sm text-gray-500">
           이미 계정이 있으신가요?{' '}
-          <a href="/login" className="text-blue-400 hover:underline">로그인</a>
+          <a href="/login" className="text-blue-400 hover:text-blue-300 transition-colors">로그인</a>
         </p>
-      </form>
+      </div>
     </div>
   )
 }

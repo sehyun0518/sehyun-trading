@@ -44,12 +44,12 @@ export default function Ranking() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-200">시장 랭킹</h2>
-        <span className="text-xs text-gray-600">1분마다 자동 갱신</span>
+        <h2 className="text-sm font-semibold text-gray-200">시장 랭킹</h2>
+        <span className="text-xs text-gray-500">1분마다 자동 갱신</span>
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-1 bg-gray-900 p-1 rounded w-fit">
+      <div className="flex gap-1 rounded-lg border border-gray-800 bg-gray-900 p-1 w-fit">
         {TABS.map(t => (
           <button
             key={t.key}
@@ -68,40 +68,42 @@ export default function Ranking() {
       {/* 본문 */}
       {isLoading && <div className="text-gray-500 text-sm">불러오는 중...</div>}
       {error && (
-        <div className="text-red-400 text-sm bg-red-950 border border-red-900 rounded px-4 py-3">
+        <div className="rounded-lg border border-red-900 bg-red-950 px-4 py-3 text-sm text-red-400">
           {error instanceof Error ? error.message : '데이터 조회 오류'}
         </div>
       )}
       {data && !data.items.length && (
-        <div className="text-gray-600 text-sm">데이터가 없습니다. 장 시간(09:00~15:30) 중 조회해주세요.</div>
+        <div className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-8 text-center text-sm text-gray-600">
+          데이터가 없습니다. 장 시간(09:00~15:30) 중 조회해주세요.
+        </div>
       )}
       {data && data.items.length > 0 && (
-        <div className="overflow-x-auto">
+        <div className="rounded-lg border border-gray-800 bg-gray-900 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-800">
-                <th className="pb-2 pr-4 font-medium w-10">순위</th>
-                <th className="pb-2 pr-6 font-medium">종목</th>
-                <th className="pb-2 pr-6 font-medium text-right">현재가</th>
-                <th className="pb-2 pr-6 font-medium text-right">등락률</th>
-                <th className="pb-2 font-medium text-right">{currentTab.metric}</th>
+              <tr className="text-left border-b border-gray-800">
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 w-12">순위</th>
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500">종목</th>
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 text-right">현재가</th>
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 text-right">등락률</th>
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 text-right">{currentTab.metric}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-800">
               {data.items.map(item => (
-                <tr key={item.ticker} className="border-b border-gray-900 hover:bg-gray-900">
-                  <td className="py-2.5 pr-4 text-gray-600 font-mono text-xs">{item.rank}</td>
-                  <td className="py-2.5 pr-6">
-                    <div className="font-medium">{item.name || item.ticker}</div>
+                <tr key={item.ticker} className="hover:bg-gray-950 transition-colors">
+                  <td className="py-2.5 px-4 text-gray-600 font-mono text-xs">{item.rank}</td>
+                  <td className="py-2.5 px-4">
+                    <div className="font-medium text-gray-100">{item.name || item.ticker}</div>
                     <div className="text-xs text-gray-500 font-mono">{item.ticker}</div>
                   </td>
-                  <td className="py-2.5 pr-6 text-right font-mono">{fmt(item.current_price)}</td>
-                  <td className={`py-2.5 pr-6 text-right font-mono text-sm ${
+                  <td className="py-2.5 px-4 text-right font-mono text-gray-300">{fmt(item.current_price)}</td>
+                  <td className={`py-2.5 px-4 text-right font-mono font-semibold ${
                     item.change_pct > 0 ? 'text-red-400' : item.change_pct < 0 ? 'text-blue-400' : 'text-gray-400'
                   }`}>
                     {item.change_pct > 0 ? '+' : ''}{item.change_pct.toFixed(2)}%
                   </td>
-                  <td className="py-2.5 text-right text-gray-300 font-mono">
+                  <td className="py-2.5 px-4 text-right text-gray-300 font-mono">
                     {currentTab.format(item)}
                   </td>
                 </tr>
