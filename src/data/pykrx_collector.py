@@ -86,6 +86,39 @@ def collect_fundamentals(target_date: date | str) -> pd.DataFrame:
     return result
 
 
+# ── 시장 지수 ────────────────────────────────────────────────────────────────
+
+def get_index_ohlcv(start: str, end: str, ticker: str = "1001") -> pd.DataFrame:
+    """지수 일봉. ticker 기본값 1001=KOSPI. 컬럼: date(YYYY-MM-DD), close."""
+    d_start = _date_str(start)
+    d_end = _date_str(end)
+    try:
+        df = stock.get_index_ohlcv_by_date(d_start, d_end, ticker)
+    except Exception:
+        return pd.DataFrame()
+    if df is None or df.empty:
+        return pd.DataFrame()
+    df = df.reset_index()
+    close_col = next((c for c in df.columns if str(c) in {"종가", "Close", "close"}), None)
+    if close_col is None:
+        return pd.DataFrame()
+    date_col = df.columns[0]  # reset_index 후 첫 번째 컬럼이 날짜
+    result = pd.DataFrame({"date": df[date_col], "close": df[close_col]})
+    result["date"] = pd.to_datetime(result["date"]).dt.strftime("%Y-%m-%d")
+    return result.sort_values("date").reset_index(drop=True)
+
+
+def get_market_ma20_valid_dates(start: str, end: str, index_ticker: str = "1001") -> frozenset[str]:
+    """지수 종가 > MA20인 날짜 집합. 시장 필터 진입 조건으로 사용."""
+    df = get_index_ohlcv(start, end, index_ticker)
+    if df.empty:
+        return frozenset()
+    df["ma20"] = df["close"].rolling(20).mean()
+    valid = df.dropna(subset=["ma20"])
+    valid = valid[valid["close"] > valid["ma20"]]["date"]
+    return frozenset(valid.tolist())
+
+
 # ── 종목 정보 ────────────────────────────────────────────────────────────────
 
 def collect_ticker_info() -> pd.DataFrame:

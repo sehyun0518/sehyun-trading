@@ -19,25 +19,30 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.backtest.runner import run_backtest
 from src.data import storage
+from src.data.pykrx_collector import get_market_ma20_valid_dates
 
-SCENARIOS = [
-    {
-        "name": "A. 베이스라인",
-        "params": {},
-    },
-    {
-        "name": "B. RSI_48",
-        "params": {"rsi_hi_override": 48},
-    },
-    {
-        "name": "C. MA20_기울기",
-        "params": {"ma20_slope_filter": True},
-    },
-    {
-        "name": "D. 복합(RSI48+MA20기울기+거래량상한)",
-        "params": {"rsi_hi_override": 48, "ma20_slope_filter": True, "vol_ratio_max": 5.0},
-    },
-]
+
+def _build_scenarios(start: str, end: str) -> list[dict]:
+    print("KOSPI MA20 유효 날짜 조회 중...", end=" ", flush=True)
+    try:
+        kospi_dates = get_market_ma20_valid_dates(start, end)
+        print(f"{len(kospi_dates)}일")
+    except Exception as e:
+        print(f"실패 ({e}) — 시나리오 E 스킵")
+        kospi_dates = None
+
+    scenarios = [
+        {"name": "A. 베이스라인",                   "params": {}},
+        {"name": "B. RSI_48",                       "params": {"rsi_hi_override": 48}},
+        {"name": "C. MA20_기울기",                  "params": {"ma20_slope_filter": True}},
+        {"name": "D. 복합(RSI48+MA20기울기+거래량상한)", "params": {"rsi_hi_override": 48, "ma20_slope_filter": True, "vol_ratio_max": 5.0}},
+    ]
+    if kospi_dates:
+        scenarios.append({
+            "name": "E. KOSPI_MA20_필터",
+            "params": {"market_valid_dates": kospi_dates},
+        })
+    return scenarios
 
 
 def _summarize(result: dict) -> dict:
@@ -83,6 +88,8 @@ def main():
         return
 
     print(f"기간: {args.start} ~ {args.end}  유니버스: {len(tickers)}종목\n")
+
+    SCENARIOS = _build_scenarios(args.start, args.end)
 
     results = []
     for sc in SCENARIOS:
@@ -154,7 +161,7 @@ def main():
         "scenarios": [
             {
                 "name": name,
-                "params": SCENARIOS[i]["params"],
+                "params": {k: v for k, v in SCENARIOS[i]["params"].items() if k != "market_valid_dates"},
                 "summary": summary,
             }
             for i, (name, summary, _) in enumerate(results)

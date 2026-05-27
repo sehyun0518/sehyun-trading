@@ -24,6 +24,7 @@ class SwingStrategy(bt.Strategy):
         rsi_hi_override=None,       # RSI 상단 변경 (예: 48)
         ma20_slope_filter=False,    # MA20 기울기 양수 필수
         vol_ratio_max=None,         # 거래량비율 상한 (예: 5.0)
+        market_valid_dates=None,    # 시장 지수 MA20 위에 있는 날짜 집합 (frozenset)
     )
 
     def __init__(self):
@@ -124,6 +125,11 @@ class SwingStrategy(bt.Strategy):
         # 거래량비율 상한 필터
         if self.p.vol_ratio_max is not None and vol_ratio > self.p.vol_ratio_max:
             return
+
+        # 시장 지수 필터: KOSPI MA20 위에 있는 날짜만 진입
+        if self.p.market_valid_dates is not None:
+            if self.data.datetime.date(0).isoformat() not in self.p.market_valid_dates:
+                return
 
         if not (above_ma and rsi_ok and vol_ok):
             return
