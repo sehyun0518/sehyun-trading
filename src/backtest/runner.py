@@ -55,6 +55,7 @@ def _run_single(ticker: str, start: str, end: str, capital: float) -> dict | Non
         "mdd_pct": round(mdd, 2),
         "trades": n_trades,
         "won": won,
+        "trade_log": strat.trade_log,
     }
 
 
@@ -84,6 +85,7 @@ def run_backtest(
 
     per_ticker = []
     skipped = []
+    all_trade_log: list[dict] = []
 
     for ticker in tickers:
         try:
@@ -93,6 +95,7 @@ def run_backtest(
             log.warning(f"백테스트 스킵: {ticker} ({e})")
             continue
         if r:
+            all_trade_log.extend(r.pop("trade_log", []))
             per_ticker.append(r)
         else:
             skipped.append({"ticker": ticker, "reason": "데이터 부족"})
@@ -132,4 +135,5 @@ def run_backtest(
         "tickers_skipped": len(skipped),
         "skipped": skipped[:20],
         "per_ticker": per_ticker_sorted,
+        "trade_log": all_trade_log,
     }
