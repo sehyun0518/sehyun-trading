@@ -22,27 +22,79 @@ from src.data import storage
 from src.data.pykrx_collector import get_market_ma20_valid_dates
 
 
-def _build_scenarios(start: str, end: str) -> list[dict]:
-    print("KOSPI MA20 유효 날짜 조회 중...", end=" ", flush=True)
-    try:
-        kospi_dates = get_market_ma20_valid_dates(start, end)
-        print(f"{len(kospi_dates)}일")
-    except Exception as e:
-        print(f"실패 ({e}) — 시나리오 E 스킵")
-        kospi_dates = None
+def _fetch_market_dates(start: str, end: str) -> tuple[frozenset | None, frozenset | None]:
+    """KOSPI(1001), KOSDAQ(2001) 각각의 MA20 유효 날짜 집합."""
+    results = []
+    for label, ticker in [("KOSPI", "1001"), ("KOSDAQ", "2001")]:
+        print(f"{label} MA20 날짜 조회 중...", end=" ", flush=True)
+        try:
+            dates = get_market_ma20_valid_dates(start, end, ticker)
+            print(f"{len(dates)}일")
+            results.append(dates)
+        except Exception as e:
+            print(f"실패 ({e})")
+            results.append(None)
+    return results[0], results[1]
+
+
+def _build_scenarios(start: str, end: str, tickers: list[str]) -> list[dict]:
+    kospi_dates, kosdaq_dates = _fetch_market_dates(start, end)
 
     scenarios = [
-        {"name": "A. 베이스라인",                   "params": {}},
-        {"name": "B. RSI_48",                       "params": {"rsi_hi_override": 48}},
-        {"name": "C. MA20_기울기",                  "params": {"ma20_slope_filter": True}},
-        {"name": "D. 복합(RSI48+MA20기울기+거래량상한)", "params": {"rsi_hi_override": 48, "ma20_slope_filter": True, "vol_ratio_max": 5.0}},
+        {"name": "A. 베이스라인",                      "params": {}, "tickers": tickers},
+        {"name": "B. RSI_48",                          "params": {"rsi_hi_override": 48}, "tickers": tickers},
+        {"name": "C. MA20_기울기",                     "params": {"ma20_slope_filter": True}, "tickers": tickers},
+        {"name": "D. 복합(RSI48+MA20기울기+거래량상한)", "params": {"rsi_hi_override": 48, "ma20_slope_filter": True, "vol_ratio_max": 5.0}, "tickers": tickers},
     ]
     if kospi_dates:
         scenarios.append({
             "name": "E. KOSPI_MA20_필터",
             "params": {"market_valid_dates": kospi_dates},
+            "tickers": tickers,
         })
+    if kospi_dates and kosdaq_dates:
+        # 시나리오 F: 종목의 상장 시장에 맞는 지수 필터 적용
+        ticker_market = _load_ticker_market(tickers)
+        kospi_tickers = [t for t in tickers if ticker_market.get(t) == "KOSPI"]
+        kosdaq_tickers = [t for t in tickers if ticker_market.get(t) == "KOSDAQ"]
+        if kospi_tickers or kosdaq_tickers:
+            scenarios.append({
+                "name": "F. 상장시장별_지수_필터",
+                "params": None,  # 특수 처리 — 아래서 split 실행
+                "tickers": tickers,
+                "_split": {
+                    "KOSPI": {"tickers": kospi_tickers, "params": {"market_valid_dates": kospi_dates}},
+                    "KOSDAQ": {"tickers": kosdaq_tickers, "params": {"market_valid_dates": kosdaq_dates}},
+                },
+            })
     return scenarios
+
+
+def _load_ticker_market(tickers: list[str]) -> dict[str, str]:
+    """DB ticker_info에서 상장 시장 조회."""
+    df = storage._read("SELECT ticker, market FROM ticker_info WHERE market IS NOT NULL")
+    if df.empty:
+        return {}
+    return dict(zip(df["ticker"], df["market"]))
+
+
+def _merge_results(per_ticker: list[dict], trade_log: list[dict], capital: float, start: str, end: str) -> dict:
+    """분리 실행된 결과를 하나로 합산."""
+    if not per_ticker:
+        return {"trade_log": [], "total_return_pct": 0, "avg_mdd_pct": 0, "win_rate": 0, "per_ticker": []}
+    total_trades = sum(r["trades"] for r in per_ticker)
+    total_won = sum(r["won"] for r in per_ticker)
+    avg_return = sum(r["return_pct"] for r in per_ticker) / len(per_ticker)
+    avg_mdd = sum(r["mdd_pct"] for r in per_ticker) / len(per_ticker)
+    return {
+        "start": start, "end": end, "capital": capital,
+        "total_return_pct": round(avg_return, 2),
+        "avg_mdd_pct": round(avg_mdd, 2),
+        "trades": total_trades,
+        "win_rate": round(total_won / total_trades * 100 if total_trades else 0, 1),
+        "per_ticker": sorted(per_ticker, key=lambda x: x["return_pct"], reverse=True),
+        "trade_log": trade_log,
+    }
 
 
 def _summarize(result: dict) -> dict:
@@ -89,12 +141,25 @@ def main():
 
     print(f"기간: {args.start} ~ {args.end}  유니버스: {len(tickers)}종목\n")
 
-    SCENARIOS = _build_scenarios(args.start, args.end)
+    SCENARIOS = _build_scenarios(args.start, args.end, tickers)
 
     results = []
     for sc in SCENARIOS:
         print(f"[{sc['name']}] 실행 중...", end=" ", flush=True)
-        r = run_backtest(tickers, args.start, args.end, args.capital, sc["params"])
+        if sc.get("_split"):
+            # 시나리오 F: 상장 시장별 분리 실행 후 합산
+            combined_log = []
+            combined_per_ticker = []
+            for mkt, cfg in sc["_split"].items():
+                if not cfg["tickers"]:
+                    continue
+                r = run_backtest(cfg["tickers"], args.start, args.end, args.capital, cfg["params"])
+                combined_log.extend(r.get("trade_log", []))
+                combined_per_ticker.extend(r.get("per_ticker", []))
+            # 합산 결과 구성
+            r = _merge_results(combined_per_ticker, combined_log, args.capital, args.start, args.end)
+        else:
+            r = run_backtest(sc["tickers"], args.start, args.end, args.capital, sc["params"])
         summary = _summarize(r)
         results.append((sc["name"], summary, r))
         print(f"완료 (거래 {summary['거래수']}건, 승률 {summary['승률']})")
@@ -161,7 +226,11 @@ def main():
         "scenarios": [
             {
                 "name": name,
-                "params": {k: v for k, v in SCENARIOS[i]["params"].items() if k != "market_valid_dates"},
+                "params": {
+                    k: v
+                    for k, v in (SCENARIOS[i].get("params") or {}).items()
+                    if k not in {"market_valid_dates"}
+                },
                 "summary": summary,
             }
             for i, (name, summary, _) in enumerate(results)

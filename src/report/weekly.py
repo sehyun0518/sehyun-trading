@@ -72,13 +72,21 @@ def generate(report_date: date | None = None, cash: float = 0.0) -> Path:
     log.info("규칙 엔진 실행 중...")
     result = engine.run(target_date=today, cash=cash)
 
-    # 2. Claude 리뷰
+    # 2. 시장 현황 수집
+    log.info("시장 현황 조회 중...")
+    try:
+        market_context = storage.get_market_performance(weeks=4)
+    except Exception as e:
+        log.warning(f"시장 현황 조회 실패: {e}")
+        market_context = None
+
+    # 3. Claude 리뷰
     log.info("Claude 분석 중...")
     holdings_review = reviewer.review_holdings(
         result["warnings"], result["portfolio_status"]
     )
     candidates_review = reviewer.review_candidates(
-        result["candidates"], result["portfolio_status"]
+        result["candidates"], result["portfolio_status"], market_context
     )
 
     # 3. 리스크 요약

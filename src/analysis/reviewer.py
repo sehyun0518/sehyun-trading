@@ -6,14 +6,18 @@ from src.analysis import claude_client, prompts
 log = logging.getLogger(__name__)
 
 
-def review_candidates(candidates: list[dict], portfolio_status: dict) -> str:
+def review_candidates(
+    candidates: list[dict],
+    portfolio_status: dict,
+    market_context: dict | None = None,
+) -> str:
     """규칙 엔진이 뽑은 후보 종목 N개에 대해 Claude 검토 요청."""
     if not candidates:
         return "규칙 엔진 기준 진입 후보 종목이 없습니다."
 
     log.info(f"Claude 후보 리뷰 시작: {len(candidates)}종목")
     system = prompts.build_system_prompt()
-    user = prompts.build_candidates_prompt(candidates, portfolio_status)
+    user = prompts.build_candidates_prompt(candidates, portfolio_status, market_context)
     result = claude_client.analyze(system, user)
     log.info("Claude 후보 리뷰 완료")
     return result
