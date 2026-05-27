@@ -22,7 +22,10 @@ def _load_ohlcv_feed(ticker: str, start: str, end: str) -> bt.feeds.PandasData |
     return bt.feeds.PandasData(dataname=df)
 
 
-def _run_single(ticker: str, start: str, end: str, capital: float) -> dict | None:
+def _run_single(
+    ticker: str, start: str, end: str, capital: float,
+    strategy_params: dict | None = None,
+) -> dict | None:
     """단일 티커 백테스트. 데이터 부족 시 None 반환."""
     feed = _load_ohlcv_feed(ticker, start, end)
     if feed is None:
@@ -32,7 +35,7 @@ def _run_single(ticker: str, start: str, end: str, capital: float) -> dict | Non
     cerebro.broker.setcash(capital)
     cerebro.broker.setcommission(commission=0.0015)
     cerebro.adddata(feed, name=ticker)
-    cerebro.addstrategy(SwingStrategy)
+    cerebro.addstrategy(SwingStrategy, **(strategy_params or {}))
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name="drawdown")
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name="trades")
 
@@ -55,6 +58,7 @@ def _run_single(ticker: str, start: str, end: str, capital: float) -> dict | Non
         "mdd_pct": round(mdd, 2),
         "trades": n_trades,
         "won": won,
+        "trade_log": strat.trade_log,
     }
 
 
@@ -63,6 +67,7 @@ def run_backtest(
     start: str,
     end: str,
     capital: float = 5_000_000,
+    strategy_params: dict | None = None,
 ) -> dict:
     """
     티커별 독립 백테스트 후 집계.
@@ -84,15 +89,17 @@ def run_backtest(
 
     per_ticker = []
     skipped = []
+    all_trade_log: list[dict] = []
 
     for ticker in tickers:
         try:
-            r = _run_single(ticker, start, end, cap_per)
+            r = _run_single(ticker, start, end, cap_per, strategy_params)
         except Exception as e:
             skipped.append({"ticker": ticker, "reason": str(e)})
             log.warning(f"백테스트 스킵: {ticker} ({e})")
             continue
         if r:
+            all_trade_log.extend(r.pop("trade_log", []))
             per_ticker.append(r)
         else:
             skipped.append({"ticker": ticker, "reason": "데이터 부족"})
@@ -132,4 +139,5 @@ def run_backtest(
         "tickers_skipped": len(skipped),
         "skipped": skipped[:20],
         "per_ticker": per_ticker_sorted,
+        "trade_log": all_trade_log,
     }
