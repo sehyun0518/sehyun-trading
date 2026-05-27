@@ -4,6 +4,8 @@
 
 # 데이터 파일
 data/market.db
+data/*.db-wal
+data/*.db-shm
 data/parquet/
 data/*.db
 data/*.log

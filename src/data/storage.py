@@ -88,6 +88,28 @@ def get_ohlcv_multi(tickers: list[str], start: str, end: str) -> pd.DataFrame:
     return _read(sql, (*tickers, start, end))
 
 
+def get_top_trading_value_tickers(limit: int = 100, end: str | None = None) -> list[str]:
+    """최신 일자 거래대금 상위 티커. market_cap 데이터가 부족한 로컬 백테스트 fallback."""
+    p = _ph()
+    if end:
+        date_sql = f"SELECT MAX(date) FROM daily_ohlcv WHERE date <= {p}"
+        latest = _read(date_sql, (end,))
+    else:
+        latest = _read("SELECT MAX(date) FROM daily_ohlcv")
+    if latest.empty or latest.iloc[0, 0] is None:
+        return []
+    latest_date = latest.iloc[0, 0]
+    sql = f"""
+        SELECT ticker
+        FROM daily_ohlcv
+        WHERE date={p} AND value IS NOT NULL
+        ORDER BY value DESC
+        LIMIT {p}
+    """
+    df = _read(sql, (latest_date, limit))
+    return df["ticker"].tolist() if not df.empty else []
+
+
 # ── 종목 정보 ────────────────────────────────────────────────────────────────
 
 def upsert_ticker_info(df: pd.DataFrame) -> int:

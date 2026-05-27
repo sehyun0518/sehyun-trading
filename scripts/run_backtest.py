@@ -42,6 +42,12 @@ def main():
             .nlargest(100, "market_cap")["ticker"]
             .tolist()
         )
+        if len(tickers) < 20:
+            log.warning(
+                "market_cap 유니버스가 %s개뿐입니다. 최신 거래대금 상위 100개로 대체합니다.",
+                len(tickers),
+            )
+            tickers = storage.get_top_trading_value_tickers(limit=100, end=args.end)
 
     log.info(f"백테스트: {args.start}~{args.end}, 자본금 {args.capital:,.0f}원, 종목 {len(tickers)}개")
 
@@ -64,7 +70,9 @@ def main():
     print(f"승률        : {result['win_rate']:.1f}%")
     if result["sharpe"] is not None:
         print(f"샤프 비율   : {result['sharpe']:.3f}")
+    print(f"요청 종목   : {result['tickers_requested']}개")
     print(f"데이터 종목 : {result['tickers_loaded']}개")
+    print(f"스킵 종목   : {result['tickers_skipped']}개")
     print("=" * 50)
 
     top = result["per_ticker"][:5]
@@ -77,6 +85,10 @@ def main():
         print("\n수익률 하위 5종목:")
         for r in bot:
             print(f"  {r['ticker']}: {r['return_pct']:>+.1f}% ({r['trades']}거래)")
+    if result.get("skipped"):
+        print("\n스킵 예시:")
+        for r in result["skipped"][:5]:
+            print(f"  {r['ticker']}: {r['reason']}")
     print()
 
 
