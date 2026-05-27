@@ -83,11 +83,19 @@ def run_backtest(
     cap_per = capital / max_pos
 
     per_ticker = []
+    skipped = []
 
     for ticker in tickers:
-        r = _run_single(ticker, start, end, cap_per)
+        try:
+            r = _run_single(ticker, start, end, cap_per)
+        except Exception as e:
+            skipped.append({"ticker": ticker, "reason": str(e)})
+            log.warning(f"백테스트 스킵: {ticker} ({e})")
+            continue
         if r:
             per_ticker.append(r)
+        else:
+            skipped.append({"ticker": ticker, "reason": "데이터 부족"})
 
     loaded = len(per_ticker)
     if loaded == 0:
@@ -120,5 +128,8 @@ def run_backtest(
         "win_rate": round(win_rate, 1),
         "sharpe": None,
         "tickers_loaded": loaded,
+        "tickers_requested": len(tickers),
+        "tickers_skipped": len(skipped),
+        "skipped": skipped[:20],
         "per_ticker": per_ticker_sorted,
     }
